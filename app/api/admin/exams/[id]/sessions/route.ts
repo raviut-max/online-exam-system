@@ -12,6 +12,8 @@ export async function POST(
 ) {
   try {
     const { id: examId } = await params
+    const body = await request.json()
+    
     const { 
       title, 
       time_mode, 
@@ -19,7 +21,7 @@ export async function POST(
       end_time, 
       max_attempts_override,
       section 
-    } = await request.json()
+    } = body
 
     console.log('📝 [Create Session API] รับข้อมูล:', {
       examId,
@@ -32,10 +34,10 @@ export async function POST(
     })
 
     if (!title || !start_time || !end_time) {
-      return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 })
+      return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน (ต้องมีชื่อ, เวลาเริ่ม, เวลาสิ้นสุด)' }, { status: 400 })
     }
 
-    // ⭐ ตรวจสอบว่าข้อสอบมีอยู่จริง
+    // 1. ตรวจสอบว่าข้อสอบมีอยู่จริง
     const { data: exam, error: examError } = await supabase
       .from('exams')
       .select('id')
@@ -43,20 +45,20 @@ export async function POST(
       .single()
 
     if (examError || !exam) {
-      return NextResponse.json({ error: 'ไม่พบข้อสอบ' }, { status: 404 })
+      return NextResponse.json({ error: 'ไม่พบข้อมูลข้อสอบ' }, { status: 404 })
     }
 
-    // ⭐ สร้าง session
+    // 2. สร้าง session
     const { data: session, error: createError } = await supabase
       .from('exam_sessions')
       .insert({
         exam_id: examId,
         title,
         time_mode: time_mode || 'flexible',
-        start_time: new Date(start_time).toISOString(),  // ⭐ แปลงเป็น ISO string
-        end_time: new Date(end_time).toISOString(),      // ⭐ แปลงเป็น ISO string
+        start_time: new Date(start_time).toISOString(),
+        end_time: new Date(end_time).toISOString(),
         is_active: true,
-        max_attempts_override: max_attempts_override || null,
+        max_attempts_override: max_attempts_override ? parseInt(max_attempts_override) : null,
         section: section || null,
       })
       .select()
@@ -64,15 +66,15 @@ export async function POST(
 
     if (createError) {
       console.error('❌ [Create Session API] สร้าง session ไม่สำเร็จ:', createError)
-      return NextResponse.json({ error: 'ไม่สามารถสร้างรอบสอบได้' }, { status: 500 })
+      // ส่ง error message กลับไปให้หน้าเว็บแสดงให้ผู้ใช้เห็น
+      return NextResponse.json({ error: `ไม่สามารถสร้างรอบสอบได้: ${createError.message}` }, { status: 500 })
     }
 
     console.log('✅ [Create Session API] สร้างรอบสอบสำเร็จ:', session)
-
     return NextResponse.json({ success: true, session })
 
   } catch (error: any) {
     console.error('❌ [Create Session API] Error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: error.message || 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' }, { status: 500 })
   }
 }
