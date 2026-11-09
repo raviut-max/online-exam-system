@@ -6,104 +6,73 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// GET: ดึง sessions ทั้งหมดของข้อสอบนี้
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id: examId } = await params
-
-    const { data, error } = await supabase
-      .from('exam_sessions')
-      .select('*')
-      .eq('exam_id', examId)
-      .order('created_at', { ascending: false })
-
-    if (error) throw error
-
-    return NextResponse.json({ sessions: data || [] })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-}
-
-// POST: สร้าง session ใหม่
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: examId } = await params
-    const body = await request.json()
-    const {
+    const { 
+      title, 
+      time_mode, 
+      start_time, 
+      end_time, 
+      max_attempts_override,
+      section 
+    } = await request.json()
+
+    console.log('📝 [Create Session API] รับข้อมูล:', {
+      examId,
       title,
       time_mode,
       start_time,
       end_time,
-      target_sections,
       max_attempts_override,
-    } = body
+      section
+    })
 
-    if (!title || !time_mode) {
-      return NextResponse.json({ 
-        error: 'กรุณากรอกชื่อรอบสอบและโหมดเวลา' 
-      }, { status: 400 })
+    if (!title || !start_time || !end_time) {
+      return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 })
     }
 
-    // ตรวจสอบเวลาตามโหมด
-    if (time_mode === 'fixed' && (!start_time || !end_time)) {
-      return NextResponse.json({ 
-        error: 'โหมด fixed ต้องมีเวลาเริ่มและสิ้นสุด' 
-      }, { status: 400 })
+    // ⭐ ตรวจสอบว่าข้อสอบมีอยู่จริง
+    const { data: exam, error: examError } = await supabase
+      .from('exams')
+      .select('id')
+      .eq('id', examId)
+      .single()
+
+    if (examError || !exam) {
+      return NextResponse.json({ error: 'ไม่พบข้อสอบ' }, { status: 404 })
     }
 
-    if (time_mode === 'flexible' && (!start_time || !end_time)) {
-      return NextResponse.json({ 
-        error: 'โหมด flexible ต้องมีวันเริ่มและวันสิ้นสุด' 
-      }, { status: 400 })
-    }
-
-    const { data, error } = await supabase
+    // ⭐ สร้าง session
+    const { data: session, error: createError } = await supabase
       .from('exam_sessions')
-      .insert([{
+      .insert({
         exam_id: examId,
         title,
-        time_mode,
-        start_time: start_time || null,
-        end_time: end_time || null,
-        target_sections: target_sections || ['*'],
+        time_mode: time_mode || 'flexible',
+        start_time: new Date(start_time).toISOString(),  // ⭐ แปลงเป็น ISO string
+        end_time: new Date(end_time).toISOString(),      // ⭐ แปลงเป็น ISO string
+        is_active: true,
         max_attempts_override: max_attempts_override || null,
-        is_active: false,
-      }])
+        section: section || null,
+      })
       .select()
       .single()
 
-    if (error) throw error
+    if (createError) {
+      console.error('❌ [Create Session API] สร้าง session ไม่สำเร็จ:', createError)
+      return NextResponse.json({ error: 'ไม่สามารถสร้างรอบสอบได้' }, { status: 500 })
+    }
 
-    return NextResponse.json({ success: true, session: data })
+    console.log('✅ [Create Session API] สร้างรอบสอบสำเร็จ:', session)
+
+    return NextResponse.json({ success: true, session })
+
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-}
-
-// DELETE: ลบ session
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id: sessionId } = await params
-
-    const { error } = await supabase
-      .from('exam_sessions')
-      .delete()
-      .eq('id', sessionId)
-
-    if (error) throw error
-
-    return NextResponse.json({ success: true })
-  } catch (error: any) {
+    console.error('❌ [Create Session API] Error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
