@@ -156,7 +156,7 @@ export default function ExamDetailClient({ examId }: { examId: string }) {
   }
 
   if (loading) {
-    return null // Suspense จะจัดการแสดง fallback ให้
+    return null // Suspense ใน page.tsx จะจัดการแสดง fallback ให้
   }
 
   if (error) {
@@ -381,7 +381,7 @@ export default function ExamDetailClient({ examId }: { examId: string }) {
           >
             🗑️ ลบข้อสอบ
           </button>
-        </div.
+        </div>
       </main>
 
       {/* Modal เพิ่มรอบสอบ */}
