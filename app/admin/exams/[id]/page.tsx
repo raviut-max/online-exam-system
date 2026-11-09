@@ -1,6 +1,10 @@
 'use client'
+
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+
+// ⭐ ป้องกัน Next.js พยายาม prerender หน้าแห่งนี้ (แก้ Error build บน Vercel)
+export const dynamic = 'force-dynamic'
 
 export default function ExamDetailPage() {
   const params = useParams()
@@ -33,7 +37,6 @@ export default function ExamDetailPage() {
     setError('')
     
     try {
-      // โหลดข้อมูลข้อสอบ
       const res = await fetch(`/api/admin/exams/${examId}`)
       const data = await res.json()
       
@@ -52,7 +55,6 @@ export default function ExamDetailPage() {
     }
   }
 
-  // ⭐ ฟังก์ชันสร้างรอบสอบ
   const handleAddSession = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -101,7 +103,6 @@ export default function ExamDetailPage() {
     }
   }
 
-  // ⭐ ฟังก์ชันเปิด/ปิดรอบสอบ
   const handleToggleSession = async (sessionId: string, currentStatus: boolean) => {
     try {
       const res = await fetch(`/api/admin/exams/${examId}/sessions/${sessionId}`, {
@@ -123,7 +124,6 @@ export default function ExamDetailPage() {
     }
   }
 
-  // ⭐ ฟังก์ชันลบรอบสอบ (พร้อมลบ attempts)
   const handleDeleteSession = async (sessionId: string) => {
     if (!confirm('⚠️ คุณแน่ใจหรือไม่ที่จะลบรอบสอบนี้?\n\nผลการสอบทั้งหมดในรอบนี้จะถูกลบด้วย!')) {
       return
@@ -218,13 +218,13 @@ export default function ExamDetailPage() {
           <div className="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
             <div className="text-sm text-gray-500">🟢 รอบที่เปิด</div>
             <div className="text-3xl font-bold text-purple-700">
-              {sessions.filter(s => s.is_active).length}
+              {sessions.filter((s: any) => s.is_active).length}
             </div>
           </div>
           <div className="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
             <div className="text-sm text-gray-500">⚪ รอบที่ปิด</div>
             <div className="text-3xl font-bold text-yellow-700">
-              {sessions.filter(s => !s.is_active).length}
+              {sessions.filter((s: any) => !s.is_active).length}
             </div>
           </div>
         </div>
@@ -383,7 +383,7 @@ export default function ExamDetailPage() {
           <button
             onClick={() => {
               if (confirm('⚠️ คุณแน่ใจหรือไม่ที่จะลบข้อสอบนี้?\n\nข้อมูลทั้งหมดจะถูกลบ!')) {
-                router.push(`/admin/exams/${examId}/delete`)
+                // สามารถเพิ่ม API ลบข้อสอบที่นี่
               }
             }}
             className="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
