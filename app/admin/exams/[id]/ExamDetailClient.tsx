@@ -156,11 +156,7 @@ export default function ExamDetailClient({ examId }: { examId: string }) {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">กำลังโหลด...</p>
-      </div>
-    )
+    return null // Suspense จะจัดการแสดง fallback ให้
   }
 
   if (error) {
@@ -385,7 +381,7 @@ export default function ExamDetailClient({ examId }: { examId: string }) {
           >
             🗑️ ลบข้อสอบ
           </button>
-        </div>
+        </div.
       </main>
 
       {/* Modal เพิ่มรอบสอบ */}
