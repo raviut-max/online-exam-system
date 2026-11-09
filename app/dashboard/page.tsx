@@ -4,9 +4,11 @@ import { useRouter } from 'next/navigation'
 
 export default function DashboardPage() {
   const [student, setStudent] = useState<any>(null)
-  const [exams, setExams] = useState<any[]>([])
+  const [availableExams, setAvailableExams] = useState<any[]>([])
+  const [upcomingExams, setUpcomingExams] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [countdowns, setCountdowns] = useState<Record<string, string>>({})
   const router = useRouter()
 
   useEffect(() => {
@@ -23,6 +25,35 @@ export default function DashboardPage() {
     loadExams(studentData.id)
   }, [router])
 
+  // ⭐ นับถอยหลังทุก 1 วินาที
+  useEffect(() => {
+    if (upcomingExams.length === 0) return
+
+    const interval = setInterval(() => {
+      const newCountdowns: Record<string, string> = {}
+      upcomingExams.forEach((exam: any) => {
+        exam.sessions.forEach((session: any) => {
+          const startTime = new Date(session.start_time).getTime()
+          const now = Date.now()
+          const diff = startTime - now
+
+          if (diff > 0) {
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+            newCountdowns[session.id] = `${days}d ${hours}h ${minutes}m ${seconds}s`
+          } else {
+            newCountdowns[session.id] = 'เริ่มแล้ว!'
+          }
+        })
+      })
+      setCountdowns(newCountdowns)
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [upcomingExams])
+
   const loadExams = async (studentId: string) => {
     setLoading(true)
     setError('')
@@ -35,7 +66,7 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           student_id: studentId,
-          client_time: new Date().toISOString() // ⭐ ส่งเวลาจาก client
+          client_time: new Date().toISOString()
         }),
       })
 
@@ -47,8 +78,10 @@ export default function DashboardPage() {
         return
       }
 
-      setExams(data.exams || [])
-      console.log('✅ [Dashboard] โหลดข้อสอบสำเร็จ:', data.exams?.length || 0, 'ข้อ')
+      setAvailableExams(data.available_exams || [])
+      setUpcomingExams(data.upcoming_exams || [])
+      console.log('✅ [Dashboard] Available:', data.available_exams?.length || 0, 
+                  'Upcoming:', data.upcoming_exams?.length || 0)
     } catch (err: any) {
       console.error('❌ [Dashboard] Error:', err)
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ')
@@ -77,7 +110,6 @@ export default function DashboardPage() {
         return
       }
 
-      // บันทึกลง sessionStorage
       sessionStorage.setItem('current_exam', JSON.stringify({
         exam_id: examId,
         session_id: sessionId,
@@ -87,7 +119,6 @@ export default function DashboardPage() {
         duration_minutes: data.exam.duration_minutes,
       }))
 
-      // ไปหน้าทำข้อสอบ
       router.push(`/student/exam/${examId}`)
     } catch (err: any) {
       alert('เกิดข้อผิดพลาดในการเริ่มทำข้อสอบ')
@@ -144,10 +175,6 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-          📝 รายการข้อสอบที่เปิดให้ทำ
-        </h2>
-
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
             ❌ {error}
@@ -159,113 +186,204 @@ export default function DashboardPage() {
             <div className="text-5xl mb-4">⏳</div>
             <p className="text-gray-500">กำลังโหลดข้อมูล...</p>
           </div>
-        ) : exams.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="text-6xl mb-4">📭</div>
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              ยังไม่มีข้อสอบที่เปิดให้ทำในขณะนี้
-            </h3>
-            <p className="text-gray-500">
-              กรุณาตรวจสอบอีกครั้งในภายหลัง หรือติดต่อผู้สอน
-            </p>
-          </div>
         ) : (
-          <div className="grid gap-6">
-            {exams.map((exam: any) => (
-              <div
-                key={exam.id}
-                className="bg-white rounded-lg shadow-md border-l-4 border-blue-500 overflow-hidden"
-              >
-                <div className="p-6">
-                  {/* Exam Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                          {exam.exam_type === 'quiz' ? '📝 ควิซ/ฝึกหัด' : '📋 สอบ'}
-                        </span>
-                        <span className="text-sm text-gray-600">
-                          {exam.course_code} - {exam.courses?.course_name}
-                        </span>
-                      </div>
-                      <h3 className="text-xl font-bold text-gray-800 mb-2">
-                        {exam.title}
-                      </h3>
-                      {exam.description && (
-                        <p className="text-sm text-gray-600 italic">
-                          "{exam.description}"
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right ml-4">
-                      <div className="text-xs text-gray-500">ระยะเวลาทำ</div>
-                      <div className="text-2xl font-bold text-blue-600">
-                        {exam.duration_minutes} <span className="text-sm">นาที</span>
-                      </div>
-                    </div>
-                  </div>
+          <>
+            {/* ⭐ ส่วนที่ 1: ข้อสอบที่เปิดให้ทำได้ตอนนี้ */}
+            <section className="mb-8">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                ✅ ข้อสอบที่เปิดให้ทำได้ตอนนี้ ({availableExams.length})
+              </h2>
 
-                  {/* Sessions */}
-                  <div className="border-t pt-4 mt-4">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                      📅 รอบสอบที่พร้อมทำ:
-                    </h4>
-                    <div className="space-y-3">
-                      {exam.sessions.map((session: any) => (
-                        <div
-                          key={session.id}
-                          className="bg-gray-50 rounded-lg p-4 border border-gray-200"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
-                                {session.time_mode === 'fixed' ? '🕐 ระบุเวลา' : '🔄 ยืดหยุ่น'}
+              {availableExams.length === 0 ? (
+                <div className="bg-white rounded-lg shadow p-8 text-center">
+                  <div className="text-5xl mb-3">📭</div>
+                  <p className="text-gray-500">ยังไม่มีข้อสอบที่เปิดให้ทำในขณะนี้</p>
+                </div>
+              ) : (
+                <div className="grid gap-6">
+                  {availableExams.map((exam: any) => (
+                    <div
+                      key={exam.id}
+                      className="bg-white rounded-lg shadow-md border-l-4 border-green-500 overflow-hidden"
+                    >
+                      <div className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                                {exam.exam_type === 'quiz' ? '📝 ควิซ' : '📋 สอบ'}
                               </span>
-                              <span className="font-semibold text-gray-800">
-                                {session.title}
+                              <span className="text-sm text-gray-600">
+                                {exam.course_code} - {exam.courses?.course_name}
                               </span>
                             </div>
-                            {session.attempts_remaining <= 1 ? (
-                              <span className="text-xs text-orange-600 font-medium">
-                                ทำได้อีก {session.attempts_remaining} ครั้ง
-                              </span>
-                            ) : (
-                              <span className="text-xs text-green-600 font-medium">
-                                ทำได้อีก {session.attempts_remaining} ครั้ง
-                              </span>
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">
+                              {exam.title}
+                            </h3>
+                            {exam.description && (
+                              <p className="text-sm text-gray-600 italic">
+                                "{exam.description}"
+                              </p>
                             )}
                           </div>
-
-                          <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3">
-                            <div>
-                              🕐 เปิด: {formatDateTime(session.start_time)}
+                          <div className="text-right ml-4">
+                            <div className="text-xs text-gray-500">ระยะเวลาทำ</div>
+                            <div className="text-2xl font-bold text-green-600">
+                              {exam.duration_minutes} <span className="text-sm">นาที</span>
                             </div>
-                            <div>
-                              🏁 ปิด: {formatDateTime(session.end_time)}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm">
-                              <span className="text-gray-500">ทำได้เหลือ </span>
-                              <strong className="text-blue-600">{session.attempts_remaining}</strong>
-                              <span className="text-gray-500"> ครั้ง</span>
-                            </div>
-                            <button
-                              onClick={() => handleStartExam(exam.id, session.id)}
-                              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition flex items-center gap-2"
-                            >
-                              ▶️ เริ่มทำข้อสอบ
-                            </button>
                           </div>
                         </div>
-                      ))}
+
+                        <div className="border-t pt-4 mt-4">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                            📅 รอบสอบที่พร้อมทำ:
+                          </h4>
+                          <div className="space-y-3">
+                            {exam.sessions.map((session: any) => (
+                              <div
+                                key={session.id}
+                                className="bg-green-50 rounded-lg p-4 border border-green-200"
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="px-2 py-1 bg-green-200 text-green-800 rounded text-xs font-medium">
+                                      {session.time_mode === 'fixed' ? '🕐 ระบุเวลา' : '🔄 ยืดหยุ่น'}
+                                    </span>
+                                    <span className="font-semibold text-gray-800">
+                                      {session.title}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs text-green-700 font-bold">
+                                    ✅ เปิดอยู่
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3">
+                                  <div>🕐 เปิด: {formatDateTime(session.start_time)}</div>
+                                  <div>🏁 ปิด: {formatDateTime(session.end_time)}</div>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                  <div className="text-sm">
+                                    <span className="text-gray-500">ทำได้เหลือ </span>
+                                    <strong className="text-green-600">{session.attempts_remaining}</strong>
+                                    <span className="text-gray-500"> ครั้ง</span>
+                                  </div>
+                                  <button
+                                    onClick={() => handleStartExam(exam.id, session.id)}
+                                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition flex items-center gap-2"
+                                  >
+                                    ▶️ เริ่มทำข้อสอบ
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              </div>
-            ))}
-          </div>
+              )}
+            </section>
+
+            {/* ⭐ ส่วนที่ 2: ข้อสอบที่จะมาถึงในอนาคต */}
+            <section>
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                ⏳ ข้อสอบที่จะมาถึง ({upcomingExams.length})
+              </h2>
+
+              {upcomingExams.length === 0 ? (
+                <div className="bg-white rounded-lg shadow p-8 text-center">
+                  <div className="text-5xl mb-3">🎉</div>
+                  <p className="text-gray-500">ไม่มีข้อสอบที่กำหนดไว้ในอนาคต</p>
+                </div>
+              ) : (
+                <div className="grid gap-6">
+                  {upcomingExams.map((exam: any) => (
+                    <div
+                      key={exam.id}
+                      className="bg-white rounded-lg shadow-md border-l-4 border-orange-500 overflow-hidden opacity-90"
+                    >
+                      <div className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                                {exam.exam_type === 'quiz' ? '📝 ควิซ' : '📋 สอบ'}
+                              </span>
+                              <span className="text-sm text-gray-600">
+                                {exam.course_code} - {exam.courses?.course_name}
+                              </span>
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">
+                              {exam.title}
+                            </h3>
+                            {exam.description && (
+                              <p className="text-sm text-gray-600 italic">
+                                "{exam.description}"
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right ml-4">
+                            <div className="text-xs text-gray-500">ระยะเวลาทำ</div>
+                            <div className="text-2xl font-bold text-orange-600">
+                              {exam.duration_minutes} <span className="text-sm">นาที</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="border-t pt-4 mt-4">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                            📅 รอบสอบที่กำหนดไว้:
+                          </h4>
+                          <div className="space-y-3">
+                            {exam.sessions.map((session: any) => (
+                              <div
+                                key={session.id}
+                                className="bg-orange-50 rounded-lg p-4 border border-orange-200"
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="px-2 py-1 bg-orange-200 text-orange-800 rounded text-xs font-medium">
+                                      {session.time_mode === 'fixed' ? '🕐 ระบุเวลา' : '🔄 ยืดหยุ่น'}
+                                    </span>
+                                    <span className="font-semibold text-gray-800">
+                                      {session.title}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs text-orange-700 font-bold">
+                                    ⏳ ยังไม่เริ่ม
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3">
+                                  <div>🕐 เปิด: {formatDateTime(session.start_time)}</div>
+                                  <div>🏁 ปิด: {formatDateTime(session.end_time)}</div>
+                                </div>
+
+                                {/* ⭐ นับถอยหลัง */}
+                                <div className="bg-white rounded-lg p-3 text-center border border-orange-200">
+                                  <div className="text-xs text-gray-500 mb-1">จะเริ่มในอีก</div>
+                                  <div className="text-2xl font-bold text-orange-600 font-mono">
+                                    {countdowns[session.id] || 'กำลังคำนวณ...'}
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 text-sm text-gray-500 text-center">
+                                  ทำได้อีก {session.attempts_remaining} ครั้ง
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
         )}
       </main>
     </div>

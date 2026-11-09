@@ -62,7 +62,11 @@ export async function POST(request: Request) {
 
     if (enrolledCourseIds.length === 0) {
       console.log('⚠️ [Student Exams API] นักศึกษายังไม่ได้ลงทะเบียนวิชาใดๆ')
-      return NextResponse.json({ exams: [], student })
+      return NextResponse.json({ 
+        available_exams: [], 
+        upcoming_exams: [], 
+        student 
+      })
     }
 
     console.log('📚 [Student Exams API] วิชาที่ลงทะเบียน:', enrolledCourseIds)
@@ -96,10 +100,14 @@ export async function POST(request: Request) {
     console.log('📝 [Student Exams API] พบข้อสอบทั้งหมด:', exams?.length || 0)
 
     if (!exams || exams.length === 0) {
-      return NextResponse.json({ exams: [], student })
+      return NextResponse.json({ 
+        available_exams: [], 
+        upcoming_exams: [], 
+        student 
+      })
     }
 
-    // 4. สำหรับแต่ละข้อสอบ ดึง sessions ที่ active และอยู่ในช่วงเวลา
+    // 4. ดึง sessions ทั้งหมด (ไม่กรองเวลา)
     const examIds = exams.map((e: any) => e.id)
     
     const { data: sessions, error: sessionsError } = await supabase
@@ -114,29 +122,8 @@ export async function POST(request: Request) {
 
     console.log('📅 [Student Exams API] พบ sessions:', sessions?.length || 0)
 
-    // 5. กรอง sessions ที่อยู่ในช่วงเวลา (ใช้ client_time)
-    const availableSessions = (sessions || []).filter((session: any) => {
-      const startTime = new Date(session.start_time)
-      const endTime = new Date(session.end_time)
-      
-      const isWithinTime = now >= startTime && now <= endTime
-      
-      console.log('🔍 [Session Check]', {
-        session_id: session.id,
-        title: session.title,
-        start: startTime.toISOString(),
-        end: endTime.toISOString(),
-        now: now.toISOString(),
-        within_time: isWithinTime
-      })
-      
-      return isWithinTime
-    })
-
-    console.log('✅ [Student Exams API] Sessions ที่พร้อมทำ:', availableSessions.length)
-
-    // 6. ตรวจสอบจำนวนครั้งที่ทำไปแล้ว
-    const sessionIds = availableSessions.map((s: any) => s.id)
+    // 5. ตรวจสอบจำนวนครั้งที่ทำไปแล้ว
+    const sessionIds = (sessions || []).map((s: any) => s.id)
     
     const { data: attempts, error: attemptsError } = await supabase
       .from('exam_attempts')
@@ -154,44 +141,64 @@ export async function POST(request: Request) {
       attemptCounts[a.session_id] = (attemptCounts[a.session_id] || 0) + 1
     })
 
-    // 7. กรอง sessions ที่ยังทำไม่ครบจำนวนครั้ง
-    const validSessions = availableSessions.filter((session: any) => {
-      const maxAttempts = session.max_attempts_override || 
-        exams.find((e: any) => e.id === session.exam_id)?.max_attempts || 1
-      const doneCount = attemptCounts[session.session_id] || 0
-      return doneCount < maxAttempts
+    // 6. แยก sessions เป็น 2 กลุ่ม: available และ upcoming
+    const availableSessions: any[] = []
+    const upcomingSessions: any[] = []
+
+    ;(sessions || []).forEach((session: any) => {
+      const exam = exams.find((e: any) => e.id === session.exam_id)
+      if (!exam) return
+
+      const startTime = new Date(session.start_time)
+      const endTime = new Date(session.end_time)
+      const maxAttempts = session.max_attempts_override || exam.max_attempts || 1
+      const doneCount = attemptCounts[session.id] || 0
+      const remaining = maxAttempts - doneCount
+
+      const sessionData = {
+        id: session.id,
+        title: session.title,
+        time_mode: session.time_mode,
+        start_time: session.start_time,
+        end_time: session.end_time,
+        max_attempts: maxAttempts,
+        attempts_done: doneCount,
+        attempts_remaining: remaining,
+        is_available: now >= startTime && now <= endTime && remaining > 0,
+        is_upcoming: now < startTime,
+        is_ended: now > endTime,
+      }
+
+      if (sessionData.is_available) {
+        availableSessions.push(sessionData)
+      } else if (sessionData.is_upcoming && remaining > 0) {
+        upcomingSessions.push(sessionData)
+      }
     })
 
-    console.log('✅ [Student Exams API] Sessions ที่ยังทำได้อีก:', validSessions.length)
+    console.log('✅ [Student Exams API] Available sessions:', availableSessions.length)
+    console.log('⏳ [Student Exams API] Upcoming sessions:', upcomingSessions.length)
 
-    // 8. จัดกลุ่ม sessions ตาม exam
-    const examsWithSessions = exams.map((exam: any) => {
-      const examSessions = validSessions.filter((s: any) => s.exam_id === exam.id)
+    // 7. จัดกลุ่ม sessions ตาม exam
+    const availableExams = exams.map((exam: any) => {
+      const examSessions = availableSessions.filter((s: any) => s.exam_id === exam.id)
       return {
         ...exam,
-        sessions: examSessions.map((session: any) => {
-          const maxAttempts = session.max_attempts_override || exam.max_attempts || 1
-          const doneCount = attemptCounts[session.id] || 0
-          const remaining = maxAttempts - doneCount
-          
-          return {
-            id: session.id,
-            title: session.title,
-            time_mode: session.time_mode,
-            start_time: session.start_time,
-            end_time: session.end_time,
-            max_attempts: maxAttempts,
-            attempts_done: doneCount,
-            attempts_remaining: remaining,
-          }
-        })
+        sessions: examSessions,
       }
-    }).filter((exam: any) => exam.sessions.length > 0) // เฉพาะ exam ที่มี session พร้อมทำ
+    }).filter((exam: any) => exam.sessions.length > 0)
 
-    console.log('🎯 [Student Exams API] ข้อสอบที่พร้อมทำ:', examsWithSessions.length)
+    const upcomingExams = exams.map((exam: any) => {
+      const examSessions = upcomingSessions.filter((s: any) => s.exam_id === exam.id)
+      return {
+        ...exam,
+        sessions: examSessions,
+      }
+    }).filter((exam: any) => exam.sessions.length > 0)
 
     return NextResponse.json({
-      exams: examsWithSessions,
+      available_exams: availableExams,
+      upcoming_exams: upcomingExams,
       student: {
         id: student.id,
         student_code: student.student_code,
