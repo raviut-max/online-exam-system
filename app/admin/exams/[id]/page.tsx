@@ -1,14 +1,10 @@
-// ⚠️ ห้ามมี 'use client' ในไฟล์นี้เด็ดขาด นี่คือ Server Component
-
-// ⭐ 2 บรรทัดนี้คือหัวใจสำคัญ: บอก Next.js/Vercel ว่า "ห้ามทำ Static Prerender หน้า route ที่มี [id] เด็ดขาด ให้ render ตอนมี request เข้ามาจริง"
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
-
 import { Suspense } from 'react'
 import AdminExamDetailClient from './AdminExamDetailClient'
 
+// ⚠️ ห้ามมี export const dynamic หรือ revalidate เด็ดขาด เพราะขัดแย้งกับ Vercel cacheComponents
+
 export default async function AdminExamDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  // ⭐ ใน Next.js 15+ ต้อง await params
+  // ✅ Next.js 15+ มาตรฐาน: การ await params ทำให้ส่วนนี้เป็น dynamic โดยอัตโนมัติ
   const { id } = await params
 
   return (
@@ -20,7 +16,6 @@ export default async function AdminExamDetailPage({ params }: { params: Promise<
         </div>
       </div>
     }>
-      {/* ส่ง id ที่ resolve แล้วไปยัง Client Component */}
       <AdminExamDetailClient examId={id} />
     </Suspense>
   )
