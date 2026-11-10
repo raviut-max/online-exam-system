@@ -6,6 +6,20 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+/**
+ * ⭐ แปลง string เวลาเป็น timestamp (ms) โดยตีความว่าเป็นเวลาไทย (UTC+7)
+ *    ถ้า string ไม่มี timezone ต่อท้าย (เช่น "2026-11-10T17:01:00")
+ *    ถ้ามี timezone อยู่แล้ว (Z หรือ +07:00) จะใช้ตามนั้น
+ *
+ *    ป้องกันปัญหา Vercel (UTC) ตีความเวลาคลาดจากเครื่องผู้ใช้ (ไทย) 7 ชั่วโมง
+ */
+function parseBangkokTime(value: string | Date): number {
+  if (value instanceof Date) return value.getTime()
+  const iso = value.replace(' ', 'T')
+  const hasTZ = /([zZ]|[+-]\d{2}:?\d{2})$/.test(iso)
+  return new Date(hasTZ ? iso : `${iso}+07:00`).getTime()
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -44,10 +58,18 @@ export async function POST(
 
     const exam = session.exams
 
-    // 2. ตรวจสอบเวลา
-    const now = new Date()
-    const startTime = new Date(session.start_time)
-    const endTime = new Date(session.end_time)
+    // 2. ตรวจสอบเวลา (ใช้เวลาไทยเสมอ ไม่ขึ้นกับ timezone ของ server)
+    const now = Date.now()
+    const startTime = parseBangkokTime(session.start_time)
+    const endTime = parseBangkokTime(session.end_time)
+
+    console.log('⏰ [Start Exam] ตรวจเวลา:', {
+      now: new Date(now).toISOString(),
+      start: new Date(startTime).toISOString(),
+      end: new Date(endTime).toISOString(),
+      raw_start: session.start_time,
+      raw_end: session.end_time,
+    })
 
     if (now < startTime) {
       return NextResponse.json({ error: 'รอบสอบยังไม่เริ่ม' }, { status: 403 })
