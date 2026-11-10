@@ -21,11 +21,12 @@ export async function POST(
       return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 })
     }
 
-    // 1. ดึง Attempt และ Exam เพื่อหา passing_score
+    // 1. ดึง Attempt และ Exam พร้อม shuffle_map
     const { data: attempt, error: attemptError } = await supabase
       .from('exam_attempts')
       .select(`
         *,
+        shuffle_map,
         exam_sessions (
           exam_id,
           exams (
@@ -41,7 +42,7 @@ export async function POST(
       return NextResponse.json({ error: 'ไม่พบข้อมูลการสอบ' }, { status: 404 })
     }
 
-    // 2. ดึงโจทย์มาตรวจคะแนน (ทำหลังบ้านเท่านั้น)
+    // 2. ดึงโจทย์มาตรวจคะแนน
     const { data: questions, error: qError } = await supabase
       .from('questions')
       .select('id, correct_answer, points')
@@ -49,23 +50,30 @@ export async function POST(
 
     if (qError) {
       console.error('⚠️ [Submit API] ดึงโจทย์ไม่ได้:', qError)
-      // ยังดำเนินการต่อได้ แม้ดึงโจทย์ไม่ได้ (อาจจะให้ 0 คะแนน)
     }
 
     let totalScore = 0
     let earnedScore = 0
+    const shuffleMap = attempt?.shuffle_map || {}
 
-    // ⭐ ตรวจคำตอบอย่างปลอดภัย
+    // ⭐ 3. ตรวจคำตอบ (ใช้ shuffle_map ถ้ามี)
     if (questions && Array.isArray(questions)) {
       questions.forEach((q: any) => {
-        const qPoints = Number(q.points) || 1 // ป้องกัน NaN
+        const qPoints = Number(q.points) || 1
         totalScore += qPoints
-        
-        // เปรียบเทียบคำตอบ (trim ช่องว่างออกเพื่อความชัวร์)
+
         const userAns = String(answers[q.id] || '').trim().toUpperCase()
         const correctAns = String(q.correct_answer || '').trim().toUpperCase()
-        
-        if (userAns === correctAns) {
+
+        // ⭐ ถ้ามี shuffle_map ให้แปลงคำตอบกลับเป็นต้นฉบับ
+        let actualUserAns = userAns
+        if (shuffleMap[q.id]) {
+          // shuffleMap[q.id] = { "A": "C", "B": "A", ... }
+          // หมายความว่า นักศึกษาเห็น "A" แต่จริงๆ คือตัวเลือกต้นฉบับ "C"
+          actualUserAns = shuffleMap[q.id][userAns] || userAns
+        }
+
+        if (actualUserAns === correctAns) {
           earnedScore += qPoints
         }
       })
@@ -76,7 +84,7 @@ export async function POST(
 
     console.log('📊 [Submit API] ผลคะแนน:', { earnedScore, totalScore, percentage, passed: percentage >= passingScore })
 
-    // 3. อัปเดตคะแนนลง DB
+    // 4. อัปเดตคะแนนลง DB
     const { error: updateError } = await supabase
       .from('exam_attempts')
       .update({
@@ -95,17 +103,16 @@ export async function POST(
       return NextResponse.json({ error: 'บันทึกผลไม่ได้: ' + updateError.message }, { status: 500 })
     }
 
-    // ⭐ 4. ส่งกลับแค่ Success (ไม่ส่ง score กลับไปให้ นศ. เห็นเด็ดขาด)
-    return NextResponse.json({ 
-      success: true, 
-      message: 'ส่งข้อสอบเรียบร้อยแล้ว' 
+    // 5. ส่งกลับแค่ Success (ไม่ส่ง score กลับไปให้นักศึกษาเห็น)
+    return NextResponse.json({
+      success: true,
+      message: 'ส่งข้อสอบเรียบร้อยแล้ว'
     })
 
   } catch (error: any) {
     console.error('💥 [Submit API] CRITICAL ERROR:', error)
-    // ส่งข้อความ error ที่อ่านง่ายกลับไป
-    return NextResponse.json({ 
-      error: error.message || 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' 
+    return NextResponse.json({
+      error: error.message || 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์'
     }, { status: 500 })
   }
 }

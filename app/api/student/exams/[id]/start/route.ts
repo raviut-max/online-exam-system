@@ -54,7 +54,7 @@ export async function POST(
 
     const exam = session.exams
 
-    // 2. ตรวจสอบเวลา (ใช้เวลาไทยเสมอ)
+    // 2. ตรวจสอบเวลา
     const now = Date.now()
     const startTime = parseBangkokTime(session.start_time)
     const endTime = parseBangkokTime(session.end_time)
@@ -63,8 +63,6 @@ export async function POST(
       now: new Date(now).toISOString(),
       start: new Date(startTime).toISOString(),
       end: new Date(endTime).toISOString(),
-      raw_start: session.start_time,
-      raw_end: session.end_time,
     })
 
     if (now < startTime) {
@@ -89,7 +87,7 @@ export async function POST(
       return NextResponse.json({ error: `ทำข้อสอบครบ ${maxAttempts} ครั้งแล้ว` }, { status: 403 })
     }
 
-    // 4. ดึงโจทย์ (รวม option_e และ option_f)
+    // 4. ดึงโจทย์
     const { data: questions } = await supabase
       .from('questions')
       .select('*')
@@ -103,7 +101,9 @@ export async function POST(
       finalQuestions = [...finalQuestions].sort(() => Math.random() - 0.5)
     }
 
-    // 6. สุ่มตัวเลือก (A-F)
+    // ⭐ 6. สุ่มตัวเลือก (A-F) และบันทึก shuffle_map
+    const shuffleMap: Record<string, Record<string, string>> = {}
+
     if (exam?.shuffle_options) {
       finalQuestions = finalQuestions.map((q: any) => {
         const opts: { key: string, value: string }[] = []
@@ -135,6 +135,9 @@ export async function POST(
           newQ[labels[idx]] = opt.value
         })
 
+        // ⭐ บันทึก shuffle map สำหรับข้อนี้
+        shuffleMap[q.id] = keyMap
+
         newQ.correct_answer = keyMap[q.correct_answer] || q.correct_answer
         return newQ
       })
@@ -142,7 +145,7 @@ export async function POST(
 
     // 7. สร้าง attempt
     const startedAt = new Date()
-    const startedAtEpoch = Math.floor(startedAt.getTime() / 1000) // ⭐ timestamp เป็นวินาที
+    const startedAtEpoch = Math.floor(startedAt.getTime() / 1000)
 
     const { data: attempt, error: createError } = await supabase
       .from('exam_attempts')
@@ -150,8 +153,9 @@ export async function POST(
         session_id: session_id,
         student_id: student_id,
         started_at: startedAt.toISOString(),
-        started_at_epoch: startedAtEpoch, // ⭐ บันทึก epoch time
+        started_at_epoch: startedAtEpoch,
         answers: {},
+        shuffle_map: shuffleMap, // ⭐ บันทึก shuffle_map ลงฐานข้อมูล
       })
       .select()
       .single()
@@ -174,6 +178,7 @@ export async function POST(
       questions_count: questionsForStudent.length,
       has_option_e: questionsForStudent[0]?.option_e ? 'Yes' : 'No',
       started_at_epoch: startedAtEpoch,
+      shuffle_map_saved: Object.keys(shuffleMap).length > 0,
     })
 
     return NextResponse.json({
@@ -187,8 +192,8 @@ export async function POST(
       },
       questions: questionsForStudent,
       started_at: startedAt.toISOString(),
-      started_at_epoch: startedAtEpoch, // ⭐ ส่ง epoch time กลับไปให้ Client
-      end_time: session.end_time, // ⭐ ส่ง end_time กลับไปให้ Client
+      started_at_epoch: startedAtEpoch,
+      end_time: session.end_time,
     })
 
   } catch (error: any) {
