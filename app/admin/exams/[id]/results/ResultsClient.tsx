@@ -8,7 +8,8 @@ export default function ResultsClient({ examId }: { examId: string }) {
   const [allResults, setAllResults] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  
+  const [exporting, setExporting] = useState(false)
+
   // State สำหรับตัวกรอง
   const [filterSection, setFilterSection] = useState<string>('all')
   const [filterYear, setFilterYear] = useState<string>('all')
@@ -22,18 +23,15 @@ export default function ResultsClient({ examId }: { examId: string }) {
     try {
       setLoading(true)
       setError('')
-      
       const res = await fetch(`/api/admin/exams/${examId}/results`, { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
       })
-      
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
         throw new Error(errData.error || 'ไม่สามารถโหลดข้อมูลได้')
       }
-      
       const data = await res.json()
       setExamInfo(data.exam_info || {})
       setAllResults(data.results || [])
@@ -42,6 +40,41 @@ export default function ResultsClient({ examId }: { examId: string }) {
       setError(err.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // ฟังก์ชัน Export Excel
+  const handleExport = async () => {
+    try {
+      setExporting(true)
+      const params = new URLSearchParams()
+      if (filterSection !== 'all') params.append('section', filterSection)
+      if (filterYear !== 'all') params.append('year', filterYear)
+      if (filterStatus !== 'all') params.append('status', filterStatus)
+
+      const response = await fetch(`/api/admin/exams/${examId}/results?${params.toString()}`)
+      
+      if (!response.ok) {
+        throw new Error('ไม่สามารถส่งออกข้อมูลได้')
+      }
+
+      // สร้าง blob และดาวน์โหลด
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${examInfo?.course_code || 'exam'}_results.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
+      alert('✅ ส่งออกข้อมูลสำเร็จ!')
+    } catch (err: any) {
+      console.error('Export error:', err)
+      alert('❌ เกิดข้อผิดพลาดในการส่งออกข้อมูล: ' + err.message)
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -75,7 +108,6 @@ export default function ResultsClient({ examId }: { examId: string }) {
     const passed = filteredResults.filter(r => r.passed).length
     const failed = total - passed
     const avgScore = total > 0 ? (filteredResults.reduce((sum, r) => sum + (r.percentage || 0), 0) / total) : 0
-    
     return { total, passed, failed, avgScore }
   }, [filteredResults])
 
@@ -90,7 +122,6 @@ export default function ResultsClient({ examId }: { examId: string }) {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -99,13 +130,30 @@ export default function ResultsClient({ examId }: { examId: string }) {
               {examInfo?.title} | {examInfo?.course_code} - {examInfo?.courses?.course_name}
             </p>
           </div>
-          {/* ⭐ แก้ไขตรงนี้: กลับไปหน้าหลัก /admin */}
-          <button 
-            onClick={() => router.push('/admin')}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium transition shadow-sm flex items-center gap-2"
-          >
-            🏠 กลับหน้าหลัก
-          </button>
+          <div className="flex gap-3">
+            <button 
+              onClick={handleExport}
+              disabled={exporting || filteredResults.length === 0}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {exporting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                  กำลังส่งออก...
+                </>
+              ) : (
+                <>
+                   ส่งออก Excel
+                </>
+              )}
+            </button>
+            <button 
+              onClick={() => router.push('/admin')}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium transition shadow-sm flex items-center gap-2"
+            >
+              🏠 กลับหน้าหลัก
+            </button>
+          </div>
         </div>
 
         {/* Filters Panel */}
@@ -123,7 +171,6 @@ export default function ResultsClient({ examId }: { examId: string }) {
               ))}
             </select>
           </div>
-          
           <div className="flex-1 min-w-[200px]">
             <label className="block text-sm font-medium text-gray-700 mb-1">ชั้นปี (Year)</label>
             <select 
@@ -137,7 +184,6 @@ export default function ResultsClient({ examId }: { examId: string }) {
               ))}
             </select>
           </div>
-
           <div className="flex-1 min-w-[200px]">
             <label className="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
             <select 
@@ -150,7 +196,6 @@ export default function ResultsClient({ examId }: { examId: string }) {
               <option value="failed">ไม่ผ่าน</option>
             </select>
           </div>
-
           <button 
             onClick={() => { setFilterSection('all'); setFilterYear('all'); setFilterStatus('all'); }}
             className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition"
@@ -189,10 +234,9 @@ export default function ResultsClient({ examId }: { examId: string }) {
         {/* Student List Table */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-900">👥 รายชื่อนักศึกษาที่ส่งข้อสอบ</h3>
+            <h3 className="text-lg font-semibold text-gray-900"> รายชื่อนักศึกษาที่ส่งข้อสอบ</h3>
             <span className="text-sm text-gray-500">แสดง {filteredResults.length} จาก {allResults.length} รายการ</span>
           </div>
-          
           {filteredResults.length === 0 ? (
             <div className="p-12 text-center text-gray-500">
               ไม่พบข้อมูลที่ตรงกับตัวกรอง
@@ -248,7 +292,6 @@ export default function ResultsClient({ examId }: { examId: string }) {
             </div>
           )}
         </div>
-
       </div>
     </div>
   )
