@@ -6,171 +6,128 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// GET: ดึงผลสอบ + สถิติแยกตามกลุ่ม
-export async function GET(
+export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: examId } = await params
-    const { searchParams } = new URL(request.url)
-    const sessionId = searchParams.get('session_id')
-    const sectionFilter = searchParams.get('section') // ⭐ เพิ่ม: กรองตามกลุ่ม
 
-    console.log('🔍 [API Results] examId:', examId, 'sessionId:', sessionId, 'section:', sectionFilter)
-
-    // 1. ดึงข้อมูลข้อสอบ (เพื่อหา course_id)
-    const { data: exam } = await supabase
+    // 1. ดึงข้อมูลข้อสอบพร้อม course_id
+    const { data: exam, error: examError } = await supabase
       .from('exams')
-      .select('id, title, course_id, course_code, passing_score')
+      .select('*, courses(course_name)')
       .eq('id', examId)
       .single()
 
-    if (!exam) {
-      return NextResponse.json({ error: 'ไม่พบข้อสอบ' }, { status: 404 })
+    if (examError || !exam) {
+      return NextResponse.json({ error: 'ไม่พบข้อมูลข้อสอบ' }, { status: 404 })
     }
 
-    // 2. ดึง Sessions ทั้งหมดของข้อสอบนี้
+    const courseId = exam.course_id
+
+    // 2. หา session_id ทั้งหมดของข้อสอบนี้
     const { data: sessions, error: sessionError } = await supabase
       .from('exam_sessions')
-      .select('id, title')
+      .select('id')
       .eq('exam_id', examId)
 
-    if (sessionError) throw sessionError
+    const sessionIds = sessions?.map((s: any) => s.id) || []
 
-    if (!sessions || sessions.length === 0) {
-      return NextResponse.json({ attempts: [], sessions: [], sectionStats: [], exam })
+    if (sessionIds.length === 0) {
+      return NextResponse.json({
+        exam_info: exam,
+        results: []
+      })
     }
 
-    const sessionIds = sessions.map((s: any) => s.id)
-
-    // 3. ดึง Attempts (ผลสอบ) + ข้อมูลนักศึกษา + section
-    let attemptsQuery = supabase
+    // 3. ดึงผลการสอบทั้งหมดที่ส่งแล้ว
+    const { data: attempts, error: attemptsError } = await supabase
       .from('exam_attempts')
       .select(`
         id,
         student_id,
+        session_id,
         started_at,
         submitted_at,
         time_used,
         score,
         total_score,
         percentage,
-        passed,
-        session_id,
-        students(student_code, full_name)
+        passed
       `)
       .in('session_id', sessionIds)
+      .not('submitted_at', 'is', null)
       .order('submitted_at', { ascending: false })
 
-    if (sessionId) {
-      attemptsQuery = attemptsQuery.eq('session_id', sessionId)
+    if (attemptsError) {
+      console.error('Error fetching attempts:', attemptsError)
+      return NextResponse.json({ 
+        error: 'ไม่สามารถดึงข้อมูลผลการสอบได้: ' + attemptsError.message 
+      }, { status: 500 })
     }
 
-    const { data: attempts, error: attemptsError } = await attemptsQuery
-    if (attemptsError) throw attemptsError
-
-    // 4. ดึง section จาก course_enrollments สำหรับแต่ละ attempt
-    const attemptsWithSection = []
-    for (const attempt of attempts || []) {
-      const { data: enrollment } = await supabase
-        .from('course_enrollments')
-        .select('section')
-        .eq('student_id', attempt.student_id)
-        .eq('course_id', exam.course_id)
-        .maybeSingle()
-
-      const section = enrollment?.section || '-'
+    // 4. ดึงรายชื่อนักศึกษาทั้งหมดที่ส่งข้อสอบ
+    const studentIds = [...new Set((attempts || []).map((a: any) => a.student_id))]
+    
+    let studentsMap: Record<string, any> = {}
+    if (studentIds.length > 0) {
+      const { data: students } = await supabase
+        .from('students')
+        .select('id, student_code, full_name, year')
+        .in('id', studentIds)
       
-      // ถ้ามีการกรองตามกลุ่ม ให้ข้ามอันที่ไม่ตรง
-      if (sectionFilter && section !== sectionFilter) continue
-
-      attemptsWithSection.push({
-        ...attempt,
-        section,
-      })
-    }
-
-    // 5. ⭐ คำนวณสถิติแยกตามกลุ่ม (Section Stats)
-    const sectionStatsMap = new Map<string, {
-      section: string
-      totalStudents: number
-      scores: number[]
-      percentages: number[]
-      passedCount: number
-    }>()
-
-    // ดึงรายชื่อนักศึกษาทั้งหมดที่ลงทะเบียนวิชานี้ (เพื่อรู้ว่ามีกี่กลุ่ม)
-    const { data: allEnrollments } = await supabase
-      .from('course_enrollments')
-      .select('student_id, section')
-      .eq('course_id', exam.course_id)
-
-    const allSections = [...new Set(allEnrollments?.map(e => e.section) || [])]
-
-    // คำนวณสถิติจาก attempts ที่มี
-    for (const attempt of attemptsWithSection) {
-      const section = attempt.section
-      if (!sectionStatsMap.has(section)) {
-        sectionStatsMap.set(section, {
-          section,
-          totalStudents: 0,
-          scores: [],
-          percentages: [],
-          passedCount: 0,
+      if (students) {
+        students.forEach((s: any) => {
+          studentsMap[s.id] = s
         })
       }
-      const stat = sectionStatsMap.get(section)!
-      stat.totalStudents++
-      stat.scores.push(parseFloat(attempt.score) || 0)
-      stat.percentages.push(parseFloat(attempt.percentage) || 0)
-      if (attempt.passed) stat.passedCount++
     }
 
-    // แปลงเป็น array และคำนวณค่าเฉลี่ย/สูงสุด/ต่ำสุด
-    const sectionStats = allSections.map(section => {
-      const stat = sectionStatsMap.get(section)
-      if (!stat) {
-        return {
-          section,
-          totalStudents: 0,
-          avgScore: 0,
-          avgPercentage: 0,
-          passedCount: 0,
-          passRate: 0,
-          maxScore: 0,
-          minScore: 0,
-        }
+    // 5. ⭐ ดึง section จาก course_enrollments ของวิชานี้
+    let enrollmentsMap: Record<string, string> = {}
+    if (courseId && studentIds.length > 0) {
+      const { data: enrollments } = await supabase
+        .from('course_enrollments')
+        .select('student_id, section')
+        .eq('course_id', courseId)
+        .in('student_id', studentIds)
+      
+      if (enrollments) {
+        enrollments.forEach((e: any) => {
+          enrollmentsMap[e.student_id] = e.section
+        })
       }
+    }
 
-      const avgScore = stat.scores.reduce((a, b) => a + b, 0) / stat.scores.length
-      const avgPercentage = stat.percentages.reduce((a, b) => a + b, 0) / stat.percentages.length
-      const maxScore = Math.max(...stat.scores)
-      const minScore = Math.min(...stat.scores)
-      const passRate = (stat.passedCount / stat.totalStudents) * 100
-
+    // 6. รวมข้อมูลและส่งกลับ
+    const results = (attempts || []).map((a: any) => {
+      const student = studentsMap[a.student_id] || {}
       return {
-        section,
-        totalStudents: stat.totalStudents,
-        avgScore: Math.round(avgScore * 100) / 100,
-        avgPercentage: Math.round(avgPercentage * 100) / 100,
-        passedCount: stat.passedCount,
-        passRate: Math.round(passRate * 10) / 10,
-        maxScore,
-        minScore,
+        id: a.id,
+        student_id: a.student_id,
+        student_code: student.student_code || 'N/A',
+        full_name: student.full_name || 'N/A',
+        year: student.year || 'N/A',
+        section: enrollmentsMap[a.student_id] || 'N/A', // ⭐ ดึง section จาก enrollment
+        score: a.score,
+        total_score: a.total_score,
+        percentage: a.percentage,
+        passed: a.passed,
+        time_used: a.time_used,
+        submitted_at: a.submitted_at,
       }
-    }).sort((a, b) => a.section.localeCompare(b.section))
-
-    console.log('📊 [API Results] Section Stats:', sectionStats)
-
-    return NextResponse.json({ 
-      attempts: attemptsWithSection, 
-      sessions: sessions,
-      sectionStats,
-      exam,
     })
+
+    return NextResponse.json({
+      exam_info: exam,
+      results: results
+    })
+
   } catch (error: any) {
-    console.error('Get results error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('API Error:', error)
+    return NextResponse.json({ 
+      error: error.message || 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' 
+    }, { status: 500 })
   }
 }

@@ -11,21 +11,20 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: sessionId } = await params
-    const { student_id } = await request.json()
+    const { id: examId } = await params
+    const { student_id, session_id } = await request.json()
 
-    if (!student_id) {
-      return NextResponse.json({ error: 'ต้องระบุ student_id' }, { status: 400 })
+    if (!student_id || !session_id) {
+      return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 })
     }
 
-    // 1. ดึงข้อมูล session + exam
-    const { data: session } = await supabase
+    // 1. ตรวจสอบ session และดึงข้อมูล exam
+    const { data: session, error: sessionError } = await supabase
       .from('exam_sessions')
       .select(`
         *,
-        exams(
+        exams (
           id,
-          course_code,
           title,
           duration_minutes,
           passing_score,
@@ -34,113 +33,139 @@ export async function POST(
           shuffle_options
         )
       `)
-      .eq('id', sessionId)
+      .eq('id', session_id)
+      .eq('exam_id', examId)
       .single()
 
-    if (!session) {
+    if (sessionError || !session) {
+      console.error('❌ [Start Exam] ไม่พบ session:', sessionError)
       return NextResponse.json({ error: 'ไม่พบรอบสอบ' }, { status: 404 })
     }
+
+    const exam = session.exams
 
     // 2. ตรวจสอบเวลา
     const now = new Date()
     const startTime = new Date(session.start_time)
     const endTime = new Date(session.end_time)
 
-    if (now < startTime || now > endTime) {
-      return NextResponse.json({ error: 'ไม่อยู่ในช่วงเวลาสอบ' }, { status: 403 })
+    if (now < startTime) {
+      return NextResponse.json({ error: 'รอบสอบยังไม่เริ่ม' }, { status: 403 })
+    }
+    if (now > endTime) {
+      return NextResponse.json({ error: 'รอบสอบหมดเวลาแล้ว' }, { status: 403 })
     }
 
-    // 3. ตรวจสอบจำนวนครั้ง
-    const maxAttempts = session.max_attempts_override || session.exams.max_attempts
-    const { count: attemptCount } = await supabase
+    // 3. ตรวจสอบจำนวนครั้งที่ทำไปแล้ว
+    const { data: attempts } = await supabase
       .from('exam_attempts')
-      .select('*', { count: 'exact', head: true })
-      .eq('session_id', sessionId)
+      .select('id')
+      .eq('session_id', session_id)
       .eq('student_id', student_id)
 
-    if (attemptCount && attemptCount >= maxAttempts) {
+    const maxAttempts = session.max_attempts_override || exam?.max_attempts || 1
+    const doneCount = attempts?.length || 0
+
+    if (doneCount >= maxAttempts) {
       return NextResponse.json({ error: `ทำข้อสอบครบ ${maxAttempts} ครั้งแล้ว` }, { status: 403 })
     }
 
-    // 4. ดึงโจทย์ทั้งหมด
+    // 4. ดึงโจทย์ (รวม option_e และ option_f)
     const { data: questions } = await supabase
       .from('questions')
       .select('*')
-      .eq('exam_id', session.exams.id)
+      .eq('exam_id', examId)
       .order('order_number', { ascending: true })
 
-    if (!questions || questions.length === 0) {
-      return NextResponse.json({ error: 'ไม่มีโจทย์ในข้อสอบนี้' }, { status: 404 })
+    let finalQuestions = questions || []
+
+    // 5. สุ่มลำดับข้อ
+    if (exam?.shuffle_questions) {
+      finalQuestions = [...finalQuestions].sort(() => Math.random() - 0.5)
     }
 
-    // 5. สุ่มลำดับโจทย์ (ถ้าเปิด)
-    let shuffledQuestions = [...questions]
-    if (session.exams.shuffle_questions) {
-      shuffledQuestions = shuffledQuestions.sort(() => Math.random() - 0.5)
+    // 6. สุ่มตัวเลือก (A-F)
+    if (exam?.shuffle_options) {
+      finalQuestions = finalQuestions.map((q: any) => {
+        const opts: { key: string, value: string }[] = []
+        if (q.option_a) opts.push({ key: 'A', value: q.option_a })
+        if (q.option_b) opts.push({ key: 'B', value: q.option_b })
+        if (q.option_c) opts.push({ key: 'C', value: q.option_c })
+        if (q.option_d) opts.push({ key: 'D', value: q.option_d })
+        if (q.option_e) opts.push({ key: 'E', value: q.option_e }) // ⭐ เพิ่ม option_e
+        if (q.option_f) opts.push({ key: 'F', value: q.option_f }) // ⭐ เพิ่ม option_f
+
+        opts.sort(() => Math.random() - 0.5)
+
+        const newQ = { 
+          ...q, 
+          option_a: null, 
+          option_b: null, 
+          option_c: null, 
+          option_d: null, 
+          option_e: null, 
+          option_f: null 
+        }
+        const labels = ['option_a', 'option_b', 'option_c', 'option_d', 'option_e', 'option_f']
+        const keyMap: Record<string, string> = {}
+
+        opts.forEach((opt, idx) => {
+          const newLabel = String.fromCharCode(65 + idx)
+          keyMap[opt.key] = newLabel
+          newQ[labels[idx]] = opt.value
+        })
+
+        newQ.correct_answer = keyMap[q.correct_answer] || q.correct_answer
+        return newQ
+      })
     }
 
-    // 6. สุ่มตัวเลือก (ถ้าเปิด)
-    const questionsWithOptions = shuffledQuestions.map((q: any) => {
-      const options = [
-        { key: 'A', value: q.option_a },
-        { key: 'B', value: q.option_b },
-        { key: 'C', value: q.option_c },
-        { key: 'D', value: q.option_d },
-      ].filter((opt: any) => opt.value)
-
-      let shuffledOptions = [...options]
-      if (session.exams.shuffle_options) {
-        shuffledOptions = shuffledOptions.sort(() => Math.random() - 0.5)
-      }
-
-      const correctOption = shuffledOptions.find((opt: any) => opt.key === q.correct_answer)
-      
-      return {
-        id: q.id,
-        order_number: q.order_number,
-        question_text: q.question_text,
-        question_type: q.question_type,
-        topic: q.topic,
-        points: q.points,
-        options: shuffledOptions.map((opt: any, idx: number) => ({
-          key: String.fromCharCode(65 + idx),
-          value: opt.value,
-        })),
-        correct_answer: q.correct_answer,
-      }
-    })
-
-    // 7. สร้าง exam_attempt (บันทึกเวลาเป็น epoch milliseconds)
-    const { data: attempt, error: attemptError } = await supabase
+    // 7. สร้าง attempt
+    const startedAt = new Date()
+    const { data: attempt, error: createError } = await supabase
       .from('exam_attempts')
-      .insert([{
-        session_id: sessionId,
+      .insert({
+        session_id: session_id,
         student_id: student_id,
-        started_at: now.toISOString(),
-        started_at_epoch: Date.now(), // ⭐ บันทึกเวลาเป็น milliseconds
+        started_at: startedAt.toISOString(),
+        started_at_epoch: Math.floor(startedAt.getTime() / 1000),
         answers: {},
-      }])
+      })
       .select()
       .single()
 
-    if (attemptError) throw attemptError
+    if (createError) {
+      console.error('❌ [Start Exam] สร้าง attempt ไม่สำเร็จ:', createError)
+      return NextResponse.json({ error: 'ไม่สามารถเริ่มทำข้อสอบได้: ' + createError.message }, { status: 500 })
+    }
+
+    // 8. ลบ correct_answer ออกจาก questions ก่อนส่งกลับ
+    const questionsForStudent = finalQuestions.map((q: any) => {
+      const { correct_answer, explanation, ...rest } = q
+      return rest
+    })
+
+    console.log('✅ [Start Exam] ส่งข้อมูลข้อสอบ:', {
+      exam_id: examId,
+      questions_count: questionsForStudent.length,
+      has_option_e: questionsForStudent[0]?.option_e ? 'Yes' : 'No'
+    })
 
     return NextResponse.json({
       success: true,
       attempt_id: attempt.id,
       exam: {
-        id: session.exams.id,
-        title: session.exams.title,
-        duration_minutes: session.exams.duration_minutes,
-        passing_score: session.exams.passing_score,
+        id: examId,
+        title: exam?.title,
+        duration_minutes: exam?.duration_minutes,
+        passing_score: exam?.passing_score,
       },
-      questions: questionsWithOptions,
-      total_questions: questionsWithOptions.length,
-      started_at: attempt.started_at,
+      questions: questionsForStudent,
+      started_at: startedAt.toISOString(),
     })
 
   } catch (error: any) {
-    console.error('Start exam error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('💥 [Start Exam] CRITICAL ERROR:', error)
+    return NextResponse.json({ error: error.message || 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' }, { status: 500 })
   }
 }

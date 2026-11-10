@@ -15,7 +15,7 @@ export default function ForgotPasswordPage() {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/forgot-password', {
+      const res = await fetch('/api/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ student_code: studentCode, email }),
@@ -28,10 +28,10 @@ export default function ForgotPasswordPage() {
         return
       }
 
-      // บันทึกรหัสนักศึกษาไว้สำหรับหน้าถัดไป
+      // บันทึกรหัสนักศึกษาและอีเมลไว้สำหรับหน้าถัดไป
       localStorage.setItem('reset_student_code', studentCode)
       localStorage.setItem('reset_email', email)
-      
+
       router.push('/reset-password')
     } catch (err) {
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ')
@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              🆔 รหัสนักศึกษา
+               รหัสนักศึกษา
             </label>
             <input
               type="text"
@@ -68,7 +68,7 @@ export default function ForgotPasswordPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              📧 อีเมล
+               อีเมล
             </label>
             <input
               type="email"
@@ -76,7 +76,7 @@ export default function ForgotPasswordPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="เช่น 68122519003@student.school.ac.th"
+              placeholder="เช่น student@example.com"
             />
           </div>
 

@@ -1,0 +1,23 @@
+import { Suspense } from 'react'
+import ExamClient from './ExamClient'
+
+// ⭐ แก้ Build Error: บอก Next.js ว่าหน้านี้ต้อง render แบบ blocking route
+export const instant = false
+
+export default async function ExamPage({ params }: { params: Promise<{ examId: string }> }) {
+  const { examId } = await params
+
+  return (
+    // ⭐ ห่อ Client Component ด้วย Suspense เพื่อให้ Next.js Stream ได้
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="text-4xl mb-4 animate-bounce">⏳</div>
+          <p className="text-gray-500 text-lg animate-pulse">กำลังโหลดข้อสอบ...</p>
+        </div>
+      </div>
+    }>
+      <ExamClient examId={examId} />
+    </Suspense>
+  )
+}

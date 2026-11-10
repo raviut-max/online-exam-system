@@ -1,5 +1,4 @@
 'use client'
-
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -101,44 +100,44 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <button
             onClick={() => router.push('/admin/students')}
-            className="bg-white rounded-lg shadow p-6 text-left hover:shadow-lg transition-shadow"
+            className="bg-white rounded-lg shadow p-6 text-left hover:shadow-lg transition-shadow border-l-4 border-blue-500"
           >
             <div className="text-4xl mb-3">👥</div>
             <h3 className="text-lg font-semibold text-gray-900">จัดการนักศึกษา</h3>
             <p className="text-sm text-gray-500 mt-1">เพิ่ม/ลบ/Import รายชื่อ</p>
           </button>
-
+          
           <button
             onClick={() => router.push('/admin/courses')}
-            className="bg-white rounded-lg shadow p-6 text-left hover:shadow-lg transition-shadow"
+            className="bg-white rounded-lg shadow p-6 text-left hover:shadow-lg transition-shadow border-l-4 border-purple-500"
           >
             <div className="text-4xl mb-3">📚</div>
             <h3 className="text-lg font-semibold text-gray-900">จัดการวิชา</h3>
             <p className="text-sm text-gray-500 mt-1">สร้างวิชาและลงทะเบียน</p>
           </button>
-
+          
           <button
             onClick={() => router.push('/admin/exams')}
-            className="bg-white rounded-lg shadow p-6 text-left hover:shadow-lg transition-shadow"
+            className="bg-white rounded-lg shadow p-6 text-left hover:shadow-lg transition-shadow border-l-4 border-indigo-500"
           >
             <div className="text-4xl mb-3">📝</div>
             <h3 className="text-lg font-semibold text-gray-900">จัดการข้อสอบ</h3>
-            <p className="text-sm text-gray-500 mt-1">สร้างชุดข้อสอบ</p>
+            <p className="text-sm text-gray-500 mt-1">สร้าง แก้ไข และตั้งค่าข้อสอบ</p>
           </button>
-
+          
+          {/* ⭐ แก้ไขตรงนี้: ชี้ไปที่ /admin/results ซึ่งเป็นหน้าเลือกวิชาเพื่อดูผล */}
           <button
             onClick={() => router.push('/admin/results')}
-            className="bg-white rounded-lg shadow p-6 text-left hover:shadow-lg transition-shadow"
+            className="bg-white rounded-lg shadow p-6 text-left hover:shadow-lg transition-shadow border-l-4 border-emerald-500"
           >
             <div className="text-4xl mb-3">📊</div>
             <h3 className="text-lg font-semibold text-gray-900">ดูผลคะแนน</h3>
-            <p className="text-sm text-gray-500 mt-1">รายงานและ Export</p>
+            <p className="text-sm text-gray-500 mt-1">เลือกวิชาเพื่อดูผลสรุปและ Export</p>
           </button>
-
-          {/* ปุ่มใหม่: รายงานการลงทะเบียน */}
+          
           <button
             onClick={() => router.push('/admin/report')}
-            className="bg-white rounded-lg shadow p-6 text-left hover:shadow-lg transition-shadow"
+            className="bg-white rounded-lg shadow p-6 text-left hover:shadow-lg transition-shadow border-l-4 border-orange-500"
           >
             <div className="text-4xl mb-3">📋</div>
             <h3 className="text-lg font-semibold text-gray-900">รายงานการลงทะเบียน</h3>

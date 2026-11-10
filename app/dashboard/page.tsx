@@ -1,115 +1,267 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function DashboardPage() {
   const [student, setStudent] = useState<any>(null)
-  const [availableExams, setAvailableExams] = useState<any[]>([])
-  const [upcomingExams, setUpcomingExams] = useState<any[]>([])
+  const [exams, setExams] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [countdowns, setCountdowns] = useState<Record<string, string>>({})
+  const [currentTime, setCurrentTime] = useState<number>(0)
   const router = useRouter()
 
+  // 1. โหลดข้อมูลนักศึกษาและเริ่มจับเวลา
   useEffect(() => {
-    // โหลดข้อมูลนักศึกษาจาก localStorage
     const storedStudent = localStorage.getItem('student')
     if (!storedStudent) {
+      console.log('⚠️ [Dashboard] ไม่พบข้อมูลนักศึกษาใน localStorage')
       router.push('/login')
       return
     }
     const studentData = JSON.parse(storedStudent)
+    console.log('👤 [Dashboard] นักศึกษา:', studentData)
     setStudent(studentData)
-    
-    // โหลดข้อสอบ
+    setCurrentTime(Date.now())
     loadExams(studentData.id)
   }, [router])
 
-  // ⭐ นับถอยหลังทุก 1 วินาที
+  // 2. อัพเดทเวลาทุก 1 วินาที
   useEffect(() => {
-    if (upcomingExams.length === 0) return
-
-    const interval = setInterval(() => {
-      const newCountdowns: Record<string, string> = {}
-      upcomingExams.forEach((exam: any) => {
-        exam.sessions.forEach((session: any) => {
-          const startTime = new Date(session.start_time).getTime()
-          const now = Date.now()
-          const diff = startTime - now
-
-          if (diff > 0) {
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-            const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-            newCountdowns[session.id] = `${days}d ${hours}h ${minutes}m ${seconds}s`
-          } else {
-            newCountdowns[session.id] = 'เริ่มแล้ว!'
-          }
-        })
-      })
-      setCountdowns(newCountdowns)
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now())
     }, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
-    return () => clearInterval(interval)
-  }, [upcomingExams])
+  // 3. Auto-reload ทุก 5 วินาที
+  useEffect(() => {
+    if (!student) return
+    const reloadTimer = setInterval(() => {
+      console.log('🔄 [Dashboard] Auto-reload...')
+      loadExams(student.id, true)
+    }, 5000)
+    return () => clearInterval(reloadTimer)
+  }, [student])
 
-  const loadExams = async (studentId: string) => {
-    setLoading(true)
-    setError('')
-    
+  // 4. ฟังก์ชันแปลงเวลาแบบปลอดภัย
+  const parseTime = (timeStr: string | null | undefined): number | null => {
+    if (!timeStr) {
+      console.warn('  ⚠️ parseTime: timeStr เป็น null/undefined')
+      return null
+    }
     try {
-      console.log('🔍 [Dashboard] กำลังโหลดข้อสอบสำหรับนักศึกษา:', studentId)
-      
+      const hasTimezone = timeStr.includes('Z') || /[+-]\d{2}:\d{2}$/.test(timeStr)
+      const dateStr = hasTimezone ? timeStr : timeStr + '+07:00'
+      const time = new Date(dateStr).getTime()
+      if (isNaN(time)) {
+        console.warn(`⚠️ parseTime: ได้ NaN จาก "${timeStr}"`)
+        return null
+      }
+      return time
+    } catch (e) {
+      console.warn(`⚠️ parseTime: error จาก "${timeStr}"`, e)
+      return null
+    }
+  }
+
+  // 5. นับถอยหลัง
+  useEffect(() => {
+    if (currentTime === 0 || exams.length === 0) return
+    const newCountdowns: Record<string, string> = {}
+    let hasUpcoming = false
+
+    exams.forEach((exam: any) => {
+      exam.sessions?.forEach((session: any) => {
+        const startTime = parseTime(session.start_time)
+        if (!startTime) return
+        const diff = startTime - currentTime
+        if (diff > 0) {
+          hasUpcoming = true
+          const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+          const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+          const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+          newCountdowns[session.id] = `${days}d ${hours}h ${minutes}m ${seconds}s`
+        } else {
+          newCountdowns[session.id] = 'เริ่มแล้ว!'
+        }
+      })
+    })
+
+    setCountdowns(prev => {
+      if (JSON.stringify(prev) === JSON.stringify(newCountdowns) && !hasUpcoming) {
+        return prev
+      }
+      return newCountdowns
+    })
+  }, [exams, currentTime])
+
+  // 6. แยก available/upcoming พร้อม Debug Log
+  const { availableExams, upcomingExams } = useMemo(() => {
+    console.log('🔍 [useMemo] เริ่มแยกข้อสอบ...')
+    console.log('  - currentTime:', currentTime, new Date(currentTime).toLocaleString('th-TH'))
+    console.log('  - exams.length:', exams.length)
+
+    if (currentTime === 0 || exams.length === 0) {
+      console.log('  ⏭️ ข้าม: currentTime=0 หรือไม่มี exams')
+      return { availableExams: [], upcomingExams: [] }
+    }
+
+    const available: any[] = []
+    const upcoming: any[] = []
+    const skipped: any[] = []
+
+    exams.forEach((exam: any, examIdx: number) => {
+      console.log(`\n📝 [Exam ${examIdx + 1}] ${exam.title}`)
+      console.log('  - exam_id:', exam.id)
+      console.log('  - sessions:', exam.sessions?.length || 0, 'รอบ')
+
+      const availableSessions: any[] = []
+      const upcomingSessions: any[] = []
+
+      exam.sessions?.forEach((session: any, sessIdx: number) => {
+        const startTime = parseTime(session.start_time)
+        const endTime = parseTime(session.end_time)
+        const attemptsRemaining = session.attempts_remaining ?? 0
+
+        console.log(`  🕐 [Session ${sessIdx + 1}] "${session.title || 'ไม่มีชื่อ'}"`)
+        console.log('    - start_time raw:', session.start_time)
+        console.log('    - end_time raw:', session.end_time)
+        console.log('    - startTime (ms):', startTime, startTime ? new Date(startTime).toLocaleString('th-TH') : 'INVALID')
+        console.log('    - endTime (ms):', endTime, endTime ? new Date(endTime).toLocaleString('th-TH') : 'INVALID')
+        console.log('    - currentTime (ms):', currentTime, new Date(currentTime).toLocaleString('th-TH'))
+        console.log('    - attempts_remaining:', attemptsRemaining)
+
+        if (!startTime || !endTime) {
+          console.warn('    ⚠️ ข้าม session นี้เพราะเวลาไม่ถูกต้อง (startTime หรือ endTime เป็น null)')
+          skipped.push({ exam: exam.title, session: session.title, reason: 'เวลาไม่ถูกต้อง' })
+          return
+        }
+
+        const isNow = currentTime >= startTime && currentTime <= endTime
+        const isFuture = currentTime < startTime
+        const isPast = currentTime > endTime
+        const hasAttempts = attemptsRemaining > 0
+
+        console.log('    - isNow (อยู่ในช่วง):', isNow)
+        console.log('    - isFuture (ยังไม่เริ่ม):', isFuture)
+        console.log('    - isPast (ผ่านแล้ว):', isPast)
+        console.log('    - hasAttempts (เหลือครั้ง):', hasAttempts)
+
+        if (isNow && hasAttempts) {
+          console.log('    ✅ → เพิ่มเข้า AVAILABLE')
+          availableSessions.push(session)
+        } else if (isFuture && hasAttempts) {
+          console.log('    ⏳ → เพิ่มเข้า UPCOMING')
+          upcomingSessions.push(session)
+        } else if (isPast) {
+          console.log('    ❌ → ข้าม (ผ่านเวลาแล้ว)')
+          skipped.push({ exam: exam.title, session: session.title, reason: 'ผ่านเวลาแล้ว' })
+        } else if (!hasAttempts) {
+          console.log('    ❌ → ข้าม (ทำครบจำนวนครั้งแล้ว)')
+          skipped.push({ exam: exam.title, session: session.title, reason: 'ทำครบ次数แล้ว' })
+        } else {
+          console.log('    ❌ → ข้าม (สถานะไม่ชัดเจน)')
+        }
+      })
+
+      if (availableSessions.length > 0) {
+        available.push({ ...exam, sessions: availableSessions })
+      }
+      if (upcomingSessions.length > 0) {
+        upcoming.push({ ...exam, sessions: upcomingSessions })
+      }
+    })
+
+    console.log('\n📊 [useMemo] สรุปผล:')
+    console.log('  - Available exams:', available.length)
+    console.log('  - Upcoming exams:', upcoming.length)
+    console.log('  - Skipped sessions:', skipped.length, skipped)
+    console.log('========================================\n')
+
+    return { availableExams: available, upcomingExams: upcoming }
+  }, [exams, currentTime])
+
+  // 7. ฟังก์ชันโหลดข้อสอบ
+  const loadExams = async (studentId: string, isReload = false) => {
+    if (!isReload) {
+      setLoading(true)
+    }
+    setError('')
+    try {
+      console.log('🔍 [loadExams] โหลดข้อสอบสำหรับ student_id:', studentId)
       const res = await fetch('/api/student/exams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           student_id: studentId,
           client_time: new Date().toISOString()
         }),
       })
-
       const data = await res.json()
-      console.log('📦 [Dashboard] API Response:', data)
+      console.log('📦 [loadExams] API Response status:', res.status)
+      console.log('📦 [loadExams] API Response data:', data)
 
       if (!res.ok) {
         setError(data.error || 'ไม่สามารถโหลดข้อมูลได้')
+        console.error('❌ [loadExams] API Error:', data.error)
         return
       }
 
-      setAvailableExams(data.available_exams || [])
-      setUpcomingExams(data.upcoming_exams || [])
-      console.log('✅ [Dashboard] Available:', data.available_exams?.length || 0, 
-                  'Upcoming:', data.upcoming_exams?.length || 0)
+      const examsList = data.exams || []
+      console.log('📋 [loadExams] จำนวนข้อสอบที่ได้:', examsList.length)
+      
+      if (examsList.length > 0) {
+        console.log('📋 [loadExams] ตัวอย่างข้อสอบแรก:', {
+          id: examsList[0].id,
+          title: examsList[0].title,
+          sessionsCount: examsList[0].sessions?.length,
+          firstSession: examsList[0].sessions?.[0]
+        })
+      }
+
+      setExams(examsList)
+      console.log('✅ [loadExams] โหลดสำเร็จ')
     } catch (err: any) {
-      console.error('❌ [Dashboard] Error:', err)
+      console.error('❌ [loadExams] Error:', err)
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ')
     } finally {
-      setLoading(false)
+      if (!isReload) {
+        setLoading(false)
+      }
     }
   }
 
+  // 8. เริ่มทำข้อสอบ
   const handleStartExam = async (examId: string, sessionId: string) => {
     if (!student) return
-    
     try {
+      console.log('🚀 [handleStartExam] เริ่มทำข้อสอบ:', { examId, sessionId })
       const res = await fetch(`/api/student/exams/${examId}/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           student_id: student.id,
-          session_id: sessionId 
+          session_id: sessionId
         }),
       })
-
       const data = await res.json()
+      console.log('📥 [handleStartExam] Response:', data)
 
       if (!res.ok) {
         alert(data.error || 'ไม่สามารถเริ่มทำข้อสอบได้')
         return
       }
 
+      // ⭐ หา session ที่ตรงกับ sessionId เพื่อดึง end_time
+      const selectedSession = exams
+        .flatMap((e: any) => e.sessions || [])
+        .find((s: any) => s.id === sessionId)
+
+      console.log('🕐 [handleStartExam] Session ที่เลือก:', selectedSession)
+
+      // ⭐ บันทึกข้อมูลลง sessionStorage พร้อม end_time
       sessionStorage.setItem('current_exam', JSON.stringify({
         exam_id: examId,
         session_id: sessionId,
@@ -117,10 +269,17 @@ export default function DashboardPage() {
         questions: data.questions,
         started_at: data.started_at,
         duration_minutes: data.exam.duration_minutes,
+        end_time: selectedSession?.end_time || null, // ⭐ เพิ่ม end_time
       }))
+
+      console.log('✅ [handleStartExam] บันทึกข้อมูลลง sessionStorage:', {
+        exam_id: examId,
+        end_time: selectedSession?.end_time
+      })
 
       router.push(`/student/exam/${examId}`)
     } catch (err: any) {
+      console.error('❌ [handleStartExam] Error:', err)
       alert('เกิดข้อผิดพลาดในการเริ่มทำข้อสอบ')
     }
   }
@@ -132,7 +291,7 @@ export default function DashboardPage() {
 
   const formatDateTime = (dateString: string) => {
     if (!dateString) return '-'
-    const date = new Date(dateString)
+    const date = new Date(dateString + (dateString.includes('Z') || dateString.match(/[+-]\d{2}:\d{2}$/) ? '' : '+07:00'))
     return date.toLocaleString('th-TH', {
       year: 'numeric',
       month: 'short',
@@ -142,7 +301,7 @@ export default function DashboardPage() {
     })
   }
 
-  if (!student) {
+  if (!student || currentTime === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-gray-500">กำลังโหลด...</p>
@@ -152,7 +311,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-blue-600 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div>
@@ -173,7 +331,6 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
@@ -188,12 +345,10 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
-            {/* ⭐ ส่วนที่ 1: ข้อสอบที่เปิดให้ทำได้ตอนนี้ */}
             <section className="mb-8">
               <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
                 ✅ ข้อสอบที่เปิดให้ทำได้ตอนนี้ ({availableExams.length})
               </h2>
-
               {availableExams.length === 0 ? (
                 <div className="bg-white rounded-lg shadow p-8 text-center">
                   <div className="text-5xl mb-3">📭</div>
@@ -202,10 +357,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="grid gap-6">
                   {availableExams.map((exam: any) => (
-                    <div
-                      key={exam.id}
-                      className="bg-white rounded-lg shadow-md border-l-4 border-green-500 overflow-hidden"
-                    >
+                    <div key={exam.id} className="bg-white rounded-lg shadow-md border-l-4 border-green-500 overflow-hidden">
                       <div className="p-6">
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
@@ -217,13 +369,9 @@ export default function DashboardPage() {
                                 {exam.course_code} - {exam.courses?.course_name}
                               </span>
                             </div>
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">
-                              {exam.title}
-                            </h3>
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">{exam.title}</h3>
                             {exam.description && (
-                              <p className="text-sm text-gray-600 italic">
-                                "{exam.description}"
-                              </p>
+                              <p className="text-sm text-gray-600 italic">"{exam.description}"</p>
                             )}
                           </div>
                           <div className="text-right ml-4">
@@ -233,36 +381,24 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         </div>
-
                         <div className="border-t pt-4 mt-4">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                            📅 รอบสอบที่พร้อมทำ:
-                          </h4>
+                          <h4 className="text-sm font-semibold text-gray-700 mb-3">📅 รอบสอบที่พร้อมทำ:</h4>
                           <div className="space-y-3">
                             {exam.sessions.map((session: any) => (
-                              <div
-                                key={session.id}
-                                className="bg-green-50 rounded-lg p-4 border border-green-200"
-                              >
+                              <div key={session.id} className="bg-green-50 rounded-lg p-4 border border-green-200">
                                 <div className="flex items-center justify-between mb-2">
                                   <div className="flex items-center gap-2">
                                     <span className="px-2 py-1 bg-green-200 text-green-800 rounded text-xs font-medium">
                                       {session.time_mode === 'fixed' ? '🕐 ระบุเวลา' : '🔄 ยืดหยุ่น'}
                                     </span>
-                                    <span className="font-semibold text-gray-800">
-                                      {session.title}
-                                    </span>
+                                    <span className="font-semibold text-gray-800">{session.title}</span>
                                   </div>
-                                  <span className="text-xs text-green-700 font-bold">
-                                    ✅ เปิดอยู่
-                                  </span>
+                                  <span className="text-xs text-green-700 font-bold">✅ เปิดอยู่</span>
                                 </div>
-
                                 <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3">
                                   <div>🕐 เปิด: {formatDateTime(session.start_time)}</div>
                                   <div>🏁 ปิด: {formatDateTime(session.end_time)}</div>
                                 </div>
-
                                 <div className="flex items-center justify-between">
                                   <div className="text-sm">
                                     <span className="text-gray-500">ทำได้เหลือ </span>
@@ -287,12 +423,10 @@ export default function DashboardPage() {
               )}
             </section>
 
-            {/* ⭐ ส่วนที่ 2: ข้อสอบที่จะมาถึงในอนาคต */}
             <section>
               <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
                 ⏳ ข้อสอบที่จะมาถึง ({upcomingExams.length})
               </h2>
-
               {upcomingExams.length === 0 ? (
                 <div className="bg-white rounded-lg shadow p-8 text-center">
                   <div className="text-5xl mb-3">🎉</div>
@@ -301,10 +435,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="grid gap-6">
                   {upcomingExams.map((exam: any) => (
-                    <div
-                      key={exam.id}
-                      className="bg-white rounded-lg shadow-md border-l-4 border-orange-500 overflow-hidden opacity-90"
-                    >
+                    <div key={exam.id} className="bg-white rounded-lg shadow-md border-l-4 border-orange-500 overflow-hidden opacity-90">
                       <div className="p-6">
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
@@ -316,13 +447,9 @@ export default function DashboardPage() {
                                 {exam.course_code} - {exam.courses?.course_name}
                               </span>
                             </div>
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">
-                              {exam.title}
-                            </h3>
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">{exam.title}</h3>
                             {exam.description && (
-                              <p className="text-sm text-gray-600 italic">
-                                "{exam.description}"
-                              </p>
+                              <p className="text-sm text-gray-600 italic">"{exam.description}"</p>
                             )}
                           </div>
                           <div className="text-right ml-4">
@@ -332,44 +459,30 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         </div>
-
                         <div className="border-t pt-4 mt-4">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                            📅 รอบสอบที่กำหนดไว้:
-                          </h4>
+                          <h4 className="text-sm font-semibold text-gray-700 mb-3">📅 รอบสอบที่กำหนดไว้:</h4>
                           <div className="space-y-3">
                             {exam.sessions.map((session: any) => (
-                              <div
-                                key={session.id}
-                                className="bg-orange-50 rounded-lg p-4 border border-orange-200"
-                              >
+                              <div key={session.id} className="bg-orange-50 rounded-lg p-4 border border-orange-200">
                                 <div className="flex items-center justify-between mb-2">
                                   <div className="flex items-center gap-2">
                                     <span className="px-2 py-1 bg-orange-200 text-orange-800 rounded text-xs font-medium">
                                       {session.time_mode === 'fixed' ? '🕐 ระบุเวลา' : '🔄 ยืดหยุ่น'}
                                     </span>
-                                    <span className="font-semibold text-gray-800">
-                                      {session.title}
-                                    </span>
+                                    <span className="font-semibold text-gray-800">{session.title}</span>
                                   </div>
-                                  <span className="text-xs text-orange-700 font-bold">
-                                    ⏳ ยังไม่เริ่ม
-                                  </span>
+                                  <span className="text-xs text-orange-700 font-bold">⏳ ยังไม่เริ่ม</span>
                                 </div>
-
                                 <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3">
                                   <div>🕐 เปิด: {formatDateTime(session.start_time)}</div>
                                   <div>🏁 ปิด: {formatDateTime(session.end_time)}</div>
                                 </div>
-
-                                {/* ⭐ นับถอยหลัง */}
                                 <div className="bg-white rounded-lg p-3 text-center border border-orange-200">
                                   <div className="text-xs text-gray-500 mb-1">จะเริ่มในอีก</div>
                                   <div className="text-2xl font-bold text-orange-600 font-mono">
                                     {countdowns[session.id] || 'กำลังคำนวณ...'}
                                   </div>
                                 </div>
-
                                 <div className="mt-3 text-sm text-gray-500 text-center">
                                   ทำได้อีก {session.attempts_remaining} ครั้ง
                                 </div>

@@ -6,123 +6,152 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// POST: Import ข้อสอบจาก JSON (สร้างเฉพาะตัวข้อสอบ ไม่มีเวลา)
+// ฟังก์ชันล้าง Space ออกจาก Key และ Value ทั้งหมดใน JSON
+function cleanJSON(obj: any): any {
+  if (obj === null || obj === undefined) return obj
+  if (typeof obj === 'string') return obj.trim()
+  if (Array.isArray(obj)) return obj.map(cleanJSON)
+  if (typeof obj === 'object') {
+    const newObj: any = {}
+    for (const key of Object.keys(obj)) {
+      newObj[key.trim()] = cleanJSON(obj[key])
+    }
+    return newObj
+  }
+  return obj
+}
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
+    const rawBody = await request.json()
+    const body = cleanJSON(rawBody) // ล้าง Space ทั้งหมด
     const { metadata, questions } = body
 
-    // 1. Validate โครงสร้าง
     if (!metadata || !questions) {
-      return NextResponse.json({ 
-        error: 'ไฟล์ JSON ต้องมี metadata และ questions' 
-      }, { status: 400 })
+      return NextResponse.json({ error: 'รูปแบบ JSON ไม่ถูกต้อง' }, { status: 400 })
     }
 
-    if (!metadata.course_code || !metadata.title || !metadata.duration_minutes) {
-      return NextResponse.json({ 
-        error: 'metadata ต้องมี course_code, title, duration_minutes' 
-      }, { status: 400 })
-    }
+    console.log('📥 [Import] เริ่มนำเข้าข้อสอบ:', metadata.course_code)
 
-    if (!Array.isArray(questions) || questions.length === 0) {
-      return NextResponse.json({ 
-        error: 'questions ต้องเป็น array และไม่ว่าง' 
-      }, { status: 400 })
-    }
-
-    // 2. เช็คว่ามีวิชานี้ไหม
-    const { data: course } = await supabase
+    // 1. หาหรือสร้าง Course (เช็คทั้ง course_code และ section)
+    // ⭐ ใช้ .limit(1) แทน .single() เพื่อป้องกัน error ถ้ามีหลาย records
+    let { data: courses } = await supabase
       .from('courses')
-      .select('id, course_code, course_name')
+      .select('id')
       .eq('course_code', metadata.course_code)
+      .eq('section', metadata.section || '001') // ⭐ เพิ่มเช็ค section
       .limit(1)
-      .single()
+
+    let course = courses?.[0] || null
 
     if (!course) {
-      return NextResponse.json({ 
-        error: `ไม่พบวิชา ${metadata.course_code} ในระบบ` 
-      }, { status: 404 })
+      // สร้าง course ใหม่ถ้าไม่มี
+      const { data: newCourse, error } = await supabase
+        .from('courses')
+        .insert({
+          course_code: metadata.course_code,
+          course_name: metadata.course_name,
+          section: metadata.section || '001', // ⭐ เพิ่ม section
+        })
+        .select()
+        .single()
+
+      if (error) {
+        return NextResponse.json({ error: 'สร้างวิชาไม่ได้: ' + error.message }, { status: 500 })
+      }
+      course = newCourse
+      console.log('✅ [Import] สร้าง course ใหม่:', course.id)
+    } else {
+      console.log('✅ [Import] ใช้ course ที่มีอยู่:', course.id)
     }
 
-    // 2.5 เช็คว่ามีข้อสอบชื่อนี้อยู่แล้วไหม
-    const { data: existingExam } = await supabase
+    // 2. สร้าง Exam
+    const { data: exam, error: examErr } = await supabase
       .from('exams')
-      .select('id, title')
-      .eq('course_code', metadata.course_code)
-      .eq('title', metadata.title)
-      .maybeSingle()
-
-    if (existingExam) {
-      return NextResponse.json({ 
-        error: `มีข้อสอบชื่อ "${metadata.title}" ของวิชานี้อยู่แล้ว (ID: ${existingExam.id})\nหากต้องการ Import ใหม่ กรุณาลบข้อสอบเดิมก่อน`,
-        existing_exam_id: existingExam.id
-      }, { status: 409 })
-    }
-
-    // 3. สร้างชุดข้อสอบ (ไม่มีเวลาแล้ว)
-    const { data: exam, error: examError } = await supabase
-      .from('exams')
-      .insert([{
+      .insert({
         course_id: course.id,
         course_code: metadata.course_code,
         title: metadata.title,
         description: metadata.description || '',
-        exam_type: metadata.exam_type || 'midterm',
-        duration_minutes: parseInt(metadata.duration_minutes),
-        passing_score: parseInt(metadata.passing_score) || 50,
+        exam_type: metadata.exam_type || 'final',
+        duration_minutes: metadata.duration_minutes || 60,
+        passing_score: metadata.passing_score || 50,
         max_attempts: metadata.max_attempts || 1,
         shuffle_questions: metadata.shuffle_questions || false,
         shuffle_options: metadata.shuffle_options || false,
-        is_active: true, // ⭐ เปิดใช้งานเลย (ตัวข้อสอบ)
-      }])
+        is_active: true,
+      })
       .select()
       .single()
 
-    if (examError) throw examError
+    if (examErr) {
+      return NextResponse.json({ error: 'สร้าง Exam ไม่ได้: ' + examErr.message }, { status: 500 })
+    }
 
-    // 4. เพิ่มโจทย์ทั้งหมด
-    const questionInserts = questions.map((q: any, idx: number) => ({
-      exam_id: exam.id,
-      order_number: q.order || idx + 1,
-      question_type: q.type || 'multiple_choice',
-      topic: q.topic || '',
-      question_text: q.question,
-      option_a: q.options?.A || '',
-      option_b: q.options?.B || '',
-      option_c: q.options?.C || '',
-      option_d: q.options?.D || '',
-      correct_answer: (q.correct_answer || 'A').toUpperCase(),
-      points: q.points || 1,
-      explanation: q.explanation || '',
-    }))
+    console.log('✅ [Import] สร้าง exam สำเร็จ:', exam.id)
 
-    const { error: questionsError } = await supabase
+    // 3. สร้าง Session (ถ้ามีเวลา)
+    if (metadata.start_time && metadata.end_time) {
+      const { error: sessionErr } = await supabase
+        .from('exam_sessions')
+        .insert({
+          exam_id: exam.id,
+          title: 'รอบสอบหลัก',
+          time_mode: 'fixed',
+          start_time: metadata.start_time,
+          end_time: metadata.end_time,
+          is_active: true,
+          max_attempts_override: metadata.max_attempts || 1,
+        })
+
+      if (sessionErr) {
+        console.warn('⚠️ [Import] สร้าง session ไม่สำเร็จ:', sessionErr.message)
+      } else {
+        console.log('✅ [Import] สร้าง session สำเร็จ')
+      }
+    }
+
+    // 4. Insert Questions (รองรับ A-F)
+    const questionsToInsert = questions.map((q: any, idx: number) => {
+      const options = q.options || {}
+      
+      return {
+        exam_id: exam.id,
+        question_text: q.question,
+        option_a: options.A || null,
+        option_b: options.B || null,
+        option_c: options.C || null,
+        option_d: options.D || null,
+        option_e: options.E || null, // ⭐ เพิ่ม option_e
+        option_f: options.F || null, // ⭐ เพิ่ม option_f (เผื่ออนาคต)
+        correct_answer: q.correct_answer,
+        points: q.points || 1,
+        order_number: q.order || idx + 1,
+        explanation: q.explanation || '',
+        question_type: q.type || 'multiple_choice',
+        topic: q.topic || '',
+      }
+    })
+
+    const { error: qErr } = await supabase
       .from('questions')
-      .insert(questionInserts)
+      .insert(questionsToInsert)
 
-    if (questionsError) throw questionsError
+    if (qErr) {
+      return NextResponse.json({ error: 'บันทึกโจทย์ไม่ได้: ' + qErr.message }, { status: 500 })
+    }
+
+    console.log('✅ [Import] บันทึกโจทย์สำเร็จ:', questions.length, 'ข้อ')
 
     return NextResponse.json({
       success: true,
-      exam: {
-        id: exam.id,
-        title: exam.title,
-        course_code: metadata.course_code,
-        course_name: course.course_name,
-      },
-      stats: {
-        total_questions: questions.length,
-        total_points: questions.reduce((sum: number, q: any) => sum + (q.points || 1), 0),
-      },
-      message: `Import สำเร็จ! สร้างข้อสอบ "${exam.title}" จำนวน ${questions.length} ข้อ\n⚠️ อย่าลืมสร้าง "รอบสอบ" (Session) ก่อนให้นักศึกษาทำ`,
-      next_step: 'สร้างรอบสอบ'
+      exam_id: exam.id,
+      questions_imported: questions.length,
+      message: `นำเข้า "${metadata.title}" สำเร็จ (${questions.length} ข้อ)`,
     })
 
   } catch (error: any) {
-    console.error('Import exam error:', error)
-    return NextResponse.json({ 
-      error: error.message || 'เกิดข้อผิดพลาดในการ Import' 
-    }, { status: 500 })
+    console.error('💥 [Import] CRITICAL ERROR:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

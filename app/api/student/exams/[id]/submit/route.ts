@@ -11,114 +11,101 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: attemptId } = await params
-    console.log('🔍 [API Submit] ได้รับ attemptId:', attemptId)
+    const { id: examId } = await params
+    const body = await request.json()
+    const { attempt_id, answers, time_used } = body
 
-    if (!attemptId) {
-      return NextResponse.json({ error: 'ไม่พบรหัสการสอบ (attemptId)' }, { status: 400 })
+    console.log('📤 [Submit API] รับข้อมูล:', { examId, attempt_id, answersCount: Object.keys(answers || {}).length })
+
+    if (!attempt_id || !answers) {
+      return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 })
     }
 
-    // ดึงข้อมูล attempt + session + exam + questions
-    const { data: attempt, error } = await supabase
+    // 1. ดึง Attempt และ Exam เพื่อหา passing_score
+    const { data: attempt, error: attemptError } = await supabase
       .from('exam_attempts')
       .select(`
         *,
-        exam_sessions(
-          *,
-          exams(
-            *,
-            questions(*)
+        exam_sessions (
+          exam_id,
+          exams (
+            passing_score
           )
         )
       `)
-      .eq('id', attemptId)
+      .eq('id', attempt_id)
       .single()
 
-    if (error || !attempt) {
-      console.error('❌ [API Submit] หา attempt ไม่เจอ! Supabase Error:', error)
-      return NextResponse.json({ error: 'ไม่พบการสอบ' }, { status: 404 })
+    if (attemptError || !attempt) {
+      console.error('❌ [Submit API] ไม่พบ attempt:', attemptError)
+      return NextResponse.json({ error: 'ไม่พบข้อมูลการสอบ' }, { status: 404 })
     }
 
-    if (attempt.submitted_at) {
-      return NextResponse.json({ error: 'ส่งข้อสอบนี้ไปแล้ว' }, { status: 400 })
+    // 2. ดึงโจทย์มาตรวจคะแนน (ทำหลังบ้านเท่านั้น)
+    const { data: questions, error: qError } = await supabase
+      .from('questions')
+      .select('id, correct_answer, points')
+      .eq('exam_id', examId)
+
+    if (qError) {
+      console.error('⚠️ [Submit API] ดึงโจทย์ไม่ได้:', qError)
+      // ยังดำเนินการต่อได้ แม้ดึงโจทย์ไม่ได้ (อาจจะให้ 0 คะแนน)
     }
 
-    // ⭐ คำนวณเวลาที่ใช้จาก epoch milliseconds (ไม่สน timezone)
-    const now = Date.now()
-    const startedAtEpoch = attempt.started_at_epoch || new Date(attempt.started_at).getTime()
-    const timeUsed = Math.floor((now - startedAtEpoch) / 1000 / 60) // นาที
-    
-    console.log('🕐 [API Submit] เวลาที่ใช้:', timeUsed, 'นาที', 
-                '(now:', now, ', started_at_epoch:', startedAtEpoch, ')')
+    let totalScore = 0
+    let earnedScore = 0
 
-    const questions = attempt.exam_sessions.exams.questions
-    const answers = attempt.answers || {}
-    
-    let correctCount = 0
-    let totalPoints = 0
-    let earnedPoints = 0
+    // ⭐ ตรวจคำตอบอย่างปลอดภัย
+    if (questions && Array.isArray(questions)) {
+      questions.forEach((q: any) => {
+        const qPoints = Number(q.points) || 1 // ป้องกัน NaN
+        totalScore += qPoints
+        
+        // เปรียบเทียบคำตอบ (trim ช่องว่างออกเพื่อความชัวร์)
+        const userAns = String(answers[q.id] || '').trim().toUpperCase()
+        const correctAns = String(q.correct_answer || '').trim().toUpperCase()
+        
+        if (userAns === correctAns) {
+          earnedScore += qPoints
+        }
+      })
+    }
 
-    const questionResults = questions.map((q: any) => {
-      const studentAnswer = answers[q.id] || null
-      const isCorrect = studentAnswer === q.correct_answer
-      const points = q.points || 1
+    const percentage = totalScore > 0 ? (earnedScore / totalScore) * 100 : 0
+    const passingScore = Number(attempt.exam_sessions?.exams?.passing_score) || 50
 
-      totalPoints += points
-      if (isCorrect) {
-        correctCount++
-        earnedPoints += points
-      }
+    console.log('📊 [Submit API] ผลคะแนน:', { earnedScore, totalScore, percentage, passed: percentage >= passingScore })
 
-      return {
-        question_id: q.id,
-        question_text: q.question_text,
-        correct_answer: q.correct_answer,
-        student_answer: studentAnswer,
-        is_correct: isCorrect,
-        points: points,
-        earned_points: isCorrect ? points : 0,
-      }
-    })
-
-    const percentage = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0
-    const passed = percentage >= attempt.exam_sessions.exams.passing_score
-
+    // 3. อัปเดตคะแนนลง DB
     const { error: updateError } = await supabase
       .from('exam_attempts')
       .update({
+        answers: answers,
         submitted_at: new Date().toISOString(),
-        time_used: timeUsed,
-        score: earnedPoints,
-        total_score: totalPoints,
+        time_used: Number(time_used) || 0,
+        score: earnedScore,
+        total_score: totalScore,
         percentage: percentage,
-        passed: passed,
-        answers: {
-          ...answers,
-          _results: questionResults,
-        },
+        passed: percentage >= passingScore,
       })
-      .eq('id', attemptId)
+      .eq('id', attempt_id)
 
     if (updateError) {
-      console.error('❌ [API Submit] อัพเดทผลสอบไม่สำเร็จ:', updateError)
-      throw updateError
+      console.error('❌ [Submit API] อัพเดทไม่สำเร็จ:', updateError)
+      return NextResponse.json({ error: 'บันทึกผลไม่ได้: ' + updateError.message }, { status: 500 })
     }
 
-    return NextResponse.json({
-      success: true,
-      result: {
-        score: earnedPoints,
-        total_score: totalPoints,
-        percentage: percentage,
-        passed: passed,
-        correct_count: correctCount,
-        total_questions: questions.length,
-        time_used: timeUsed,
-      },
+    // ⭐ 4. ส่งกลับแค่ Success (ไม่ส่ง score กลับไปให้ นศ. เห็นเด็ดขาด)
+    return NextResponse.json({ 
+      success: true, 
+      message: 'ส่งข้อสอบเรียบร้อยแล้ว' 
     })
 
   } catch (error: any) {
-    console.error('❌ [API Submit] Error โดยรวม:', error)
-    return NextResponse.json({ error: error.message || 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' }, { status: 500 })
+    console.error('💥 [Submit API] CRITICAL ERROR:', error)
+    // ส่งข้อความ error ที่อ่านง่ายกลับไป
+    return NextResponse.json({ 
+      error: error.message || 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' 
+    }, { status: 500 })
   }
 }

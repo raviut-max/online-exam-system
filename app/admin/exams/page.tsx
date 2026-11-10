@@ -1,5 +1,4 @@
 'use client'
-
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -69,7 +68,6 @@ export default function AdminExamsPage() {
     try {
       const params = new URLSearchParams()
       if (filterCourse) params.set('course_code', filterCourse)
-      
       const res = await fetch(`/api/admin/exams?${params.toString()}`)
       const data = await res.json()
       if (res.ok) setExams(data.exams)
@@ -116,17 +114,54 @@ export default function AdminExamsPage() {
     }
   }
 
+  // ⭐ ฟังก์ชันแปลงเวลาเป็น UTC+7 ก่อนส่ง (เติม +07:00 ถ้ายังไม่มี)
+  const convertToThaiTime = (timeStr: string | null | undefined): string | null => {
+    if (!timeStr) return null
+    
+    // ถ้ามี timezone อยู่แล้ว (เช่น +07:00 หรือ Z) ให้ใช้เลย
+    if (timeStr.includes('Z') || /[+-]\d{2}:\d{2}$/.test(timeStr)) {
+      return timeStr
+    }
+    
+    // ถ้าเป็น datetime-local (เช่น "2026-11-10T11:00") ให้เติม :00+07:00
+    if (timeStr.length === 16) {
+      return timeStr + ':00+07:00'
+    }
+    
+    // ถ้าเป็น date-only (เช่น "2026-11-10") ให้เติมเวลาเริ่มต้น
+    if (timeStr.length === 10) {
+      return timeStr + 'T00:00:00+07:00'
+    }
+    
+    // กรณีอื่นๆ ให้เติม +07:00
+    return timeStr + '+07:00'
+  }
+
   const handleCreateSession = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedExamId) return
-
+    
     try {
+      // ⭐ แปลงเวลาเป็น UTC+7 ก่อนส่ง
+      const sessionData = {
+        ...newSession,
+        start_time: convertToThaiTime(newSession.start_time),
+        end_time: convertToThaiTime(newSession.end_time),
+      }
+
+      console.log('🕐 [Admin] ส่งข้อมูลรอบสอบ:', sessionData)
+      console.log('🕐 [Admin] เวลาที่แปลงแล้ว:', {
+        start: sessionData.start_time,
+        end: sessionData.end_time
+      })
+
       const res = await fetch(`/api/admin/exams/${selectedExamId}/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newSession),
+        body: JSON.stringify(sessionData),
       })
       const data = await res.json()
+      
       if (res.ok) {
         setShowSessionModal(false)
         setSelectedExamId(null)
@@ -144,6 +179,7 @@ export default function AdminExamsPage() {
         alert(data.error)
       }
     } catch (err) {
+      console.error('❌ [Admin] Error:', err)
       alert('เกิดข้อผิดพลาด')
     }
   }
@@ -201,7 +237,6 @@ export default function AdminExamsPage() {
     try {
       const res = await fetch(`/api/admin/exams/${exam.id}/export`)
       const data = await res.json()
-      
       if (res.ok) {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
         const url = URL.createObjectURL(blob)
@@ -253,7 +288,7 @@ export default function AdminExamsPage() {
   // สรุปสถิติ
   const totalExams = exams.length
   const totalSessions = exams.reduce((sum: number, exam: any) => sum + (exam.exam_sessions?.length || 0), 0)
-  const activeSessions = exams.reduce((sum: number, exam: any) => 
+  const activeSessions = exams.reduce((sum: number, exam: any) =>
     sum + (exam.exam_sessions?.filter((s: any) => s.is_active).length || 0), 0
   )
 
@@ -372,7 +407,6 @@ export default function AdminExamsPage() {
             {exams.map((exam: any) => {
               const sessions = exam.exam_sessions || []
               const activeSessionCount = sessions.filter((s: any) => s.is_active).length
-
               return (
                 <div
                   key={exam.id}
@@ -396,7 +430,6 @@ export default function AdminExamsPage() {
                         </p>
                       </div>
                     </div>
-
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm text-gray-600">
                       <div className="bg-white rounded p-2">
                         <div className="text-xs text-gray-500">⏱️ เวลาทำ</div>
@@ -419,7 +452,6 @@ export default function AdminExamsPage() {
                         </div>
                       </div>
                     </div>
-
                     {exam.description && (
                       <p className="text-sm text-gray-500 mt-3 italic border-l-2 border-gray-300 pl-3">
                         "{exam.description}"
@@ -459,8 +491,8 @@ export default function AdminExamsPage() {
                           <div
                             key={session.id}
                             className={`border rounded-lg p-4 ${
-                              session.is_active 
-                                ? 'bg-green-50 border-green-200' 
+                              session.is_active
+                                ? 'bg-green-50 border-green-200'
                                 : 'bg-gray-50 border-gray-200'
                             }`}
                           >
@@ -468,8 +500,8 @@ export default function AdminExamsPage() {
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
                                   <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                    session.is_active 
-                                      ? 'bg-green-100 text-green-800' 
+                                    session.is_active
+                                      ? 'bg-green-100 text-green-800'
                                       : 'bg-gray-200 text-gray-600'
                                   }`}>
                                     {session.is_active ? '🟢 เปิด' : '⚪ ปิด'}
@@ -503,7 +535,6 @@ export default function AdminExamsPage() {
                                   )}
                                 </div>
                               </div>
-
                               <div className="flex gap-2 ml-4">
                                 <button
                                   onClick={() => toggleSession(session.id, session.is_active)}
@@ -569,7 +600,7 @@ export default function AdminExamsPage() {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 my-8">
             <h2 className="text-xl font-bold mb-4">📝 สร้างข้อสอบใหม่ (Template)</h2>
             <p className="text-sm text-gray-600 mb-4 bg-blue-50 p-3 rounded">
-              💡 ขั้นตอนนี้สร้างเฉพาะ <strong>ตัวข้อสอบ (Template)</strong> เท่านั้น 
+              💡 ขั้นตอนนี้สร้างเฉพาะ <strong>ตัวข้อสอบ (Template)</strong> เท่านั้น
               หลังจากสร้างแล้วต้อง <strong>เพิ่มรอบสอบ (Session)</strong> ก่อนจึงจะให้นักศึกษาทำได้
             </p>
             <form onSubmit={handleCreateExam} className="space-y-4">
@@ -590,7 +621,6 @@ export default function AdminExamsPage() {
                     ))}
                   </select>
                 </div>
-
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700">ชื่อข้อสอบ *</label>
                   <input
@@ -602,7 +632,6 @@ export default function AdminExamsPage() {
                     placeholder="เช่น สอบกลางภาค 1/2569"
                   />
                 </div>
-
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700">รายละเอียด</label>
                   <textarea
@@ -612,7 +641,6 @@ export default function AdminExamsPage() {
                     rows={2}
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700">ประเภท</label>
                   <select
@@ -626,7 +654,6 @@ export default function AdminExamsPage() {
                     <option value="practice">📚 ฝึกหัด</option>
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700">เวลาทำ (นาที) *</label>
                   <input
@@ -638,7 +665,6 @@ export default function AdminExamsPage() {
                     className="mt-1 w-full px-3 py-2 border rounded-md"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700">คะแนนผ่าน (%) *</label>
                   <input
@@ -651,7 +677,6 @@ export default function AdminExamsPage() {
                     className="mt-1 w-full px-3 py-2 border rounded-md"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700">จำนวนครั้งที่ทำได้</label>
                   <input
@@ -662,7 +687,6 @@ export default function AdminExamsPage() {
                     className="mt-1 w-full px-3 py-2 border rounded-md"
                   />
                 </div>
-
                 <div className="md:col-span-2 flex gap-6">
                   <label className="flex items-center gap-2">
                     <input
@@ -684,7 +708,6 @@ export default function AdminExamsPage() {
                   </label>
                 </div>
               </div>
-
               <div className="flex gap-3 pt-4 border-t">
                 <button
                   type="button"
@@ -723,7 +746,6 @@ export default function AdminExamsPage() {
                     placeholder="เช่น กลางภาค กลุ่ม 001, สอบซ่อม, แบบฝึกหัด"
                   />
                 </div>
-
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">⏰ โหมดเวลาสอบ</label>
                   <div className="grid grid-cols-2 gap-3">
@@ -759,11 +781,10 @@ export default function AdminExamsPage() {
                     </button>
                   </div>
                 </div>
-
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    {newSession.time_mode === 'fixed' 
-                      ? '📅 วันและเวลาสอบ *' 
+                    {newSession.time_mode === 'fixed'
+                      ? '📅 วันและเวลาสอบ *'
                       : '📅 ช่วงเวลาทำข้อสอบ *'}
                   </label>
                   {newSession.time_mode === 'fixed' ? (
@@ -814,12 +835,11 @@ export default function AdminExamsPage() {
                     </div>
                   )}
                   <p className="text-xs text-gray-500 mt-1">
-                    {newSession.time_mode === 'fixed' 
+                    {newSession.time_mode === 'fixed'
                       ? 'นักศึกษาต้องทำข้อสอบในช่วงเวลานี้เท่านั้น'
                       : 'นักศึกษาสามารถเลือกเวลาเริ่มทำเองได้ภายในช่วงนี้'}
                   </p>
                 </div>
-
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700">
                     จำนวนครั้งสูงสุด (เว้นว่าง = ใช้ค่าจากข้อสอบ)
@@ -828,16 +848,15 @@ export default function AdminExamsPage() {
                     type="number"
                     min="1"
                     value={newSession.max_attempts_override || ''}
-                    onChange={(e) => setNewSession({ 
-                      ...newSession, 
-                      max_attempts_override: e.target.value ? parseInt(e.target.value) : null 
+                    onChange={(e) => setNewSession({
+                      ...newSession,
+                      max_attempts_override: e.target.value ? parseInt(e.target.value) : null
                     })}
                     className="mt-1 w-full px-3 py-2 border rounded-md"
                     placeholder="เช่น 1, 2, 3"
                   />
                 </div>
               </div>
-
               <div className="flex gap-3 pt-4 border-t">
                 <button
                   type="button"

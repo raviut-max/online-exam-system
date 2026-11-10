@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     let courseQuery = supabase.from('courses').select('*').order('course_code')
     if (courseCode) courseQuery = courseQuery.eq('course_code', courseCode)
     if (section) courseQuery = courseQuery.eq('section', section)
-
+    
     const { data: courses, error: courseError } = await courseQuery
     if (courseError) throw courseError
 
@@ -31,8 +31,8 @@ export async function GET(request: Request) {
         .eq('section', course.section)
 
       const studentIds = (enrollments || []).map((e: any) => e.student_id)
-      
       let students: any[] = []
+      
       if (studentIds.length > 0) {
         const { data } = await supabase
           .from('students')
