@@ -2,19 +2,19 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
-export default function ExamClient({ examId }: { examId: string }) {
+export default function StudentExamClient({ examId }: { examId: string }) {
   const router = useRouter()
 
   const [examData, setExamData] = useState<any>(null)
   const [currentPage, setCurrentPage] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [timeLeft, setTimeLeft] = useState<number>(0)
-  const [endTime, setEndTime] = useState<number>(0) // ⭐ เวลาหมดของรอบสอบ (timestamp)
-  const [endTimeFormatted, setEndTimeFormatted] = useState<string>('') // ⭐ เวลาหมดแบบอ่านง่าย
+  const [endTime, setEndTime] = useState<number>(0)
+  const [endTimeFormatted, setEndTimeFormatted] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false)
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<number>>(new Set())
-  const [showTimeWarning, setShowTimeWarning] = useState(false) // ⭐ แสดงคำเตือนเวลาใกล้หมด
+  const [showTimeWarning, setShowTimeWarning] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   const QUESTIONS_PER_PAGE = 10
@@ -35,13 +35,42 @@ export default function ExamClient({ examId }: { examId: string }) {
         return
       }
       setExamData(data)
-      
-      // ⭐ ตั้งค่าเวลาหมดจากรอบสอบ
-      if (data.end_time) {
+
+      // ⭐ คำนวณเวลาจาก started_at_epoch (แม่นยำที่สุด)
+      const startedAtEpoch = data.started_at_epoch
+      const durationSeconds = data.duration_minutes * 60
+
+      if (startedAtEpoch) {
+        // คำนวณเวลาหมดจาก epoch + duration
+        const endTimeMs = (startedAtEpoch + durationSeconds) * 1000
+        setEndTime(endTimeMs)
+
+        // แปลงเวลาหมดเป็นรูปแบบที่อ่านง่าย
+        const endDate = new Date(endTimeMs)
+        setEndTimeFormatted(
+          endDate.toLocaleString('th-TH', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          })
+        )
+
+        // คำนวณเวลาเหลือ
+        const now = Date.now()
+        const remaining = Math.max(0, Math.floor((endTimeMs - now) / 1000))
+        setTimeLeft(remaining)
+
+        console.log('⏰ [Exam] เวลาเริ่ม (epoch):', startedAtEpoch)
+        console.log('⏰ [Exam] เวลาหมด:', endTimeFormatted)
+        console.log('⏰ [Exam] เวลาเหลือ (วินาที):', remaining)
+      } else if (data.end_time) {
+        // Fallback: ใช้ end_time จาก session
         const endTimeMs = new Date(data.end_time).getTime()
         setEndTime(endTimeMs)
-        
-        // ⭐ แปลงเวลาหมดเป็นรูปแบบที่อ่านง่าย
+
         const endDate = new Date(data.end_time)
         setEndTimeFormatted(
           endDate.toLocaleString('th-TH', {
@@ -53,18 +82,17 @@ export default function ExamClient({ examId }: { examId: string }) {
             second: '2-digit',
           })
         )
-        
-        // ⭐ คำนวณเวลาเหลือจาก end_time
+
         const now = Date.now()
         const remaining = Math.max(0, Math.floor((endTimeMs - now) / 1000))
         setTimeLeft(remaining)
-        
-        console.log('⏰ [Exam] เวลาหมด:', endTimeFormatted)
+
+        console.log('⏰ [Exam] เวลาหมด (จาก end_time):', endTimeFormatted)
         console.log('⏰ [Exam] เวลาเหลือ (วินาที):', remaining)
       } else {
-        // Fallback: ถ้าไม่มี end_time ใช้ duration_minutes
-        setTimeLeft(data.duration_minutes * 60)
-        console.log('⚠️ [Exam] ไม่มี end_time ใช้ duration_minutes:', data.duration_minutes)
+        // Fallback สุดท้าย: ใช้ duration_minutes
+        setTimeLeft(durationSeconds)
+        console.log('⚠️ [Exam] ไม่มี started_at_epoch หรือ end_time ใช้ duration_minutes:', data.duration_minutes)
       }
     } catch (e) {
       console.error('Invalid session data', e)
@@ -81,12 +109,12 @@ export default function ExamClient({ examId }: { examId: string }) {
           handleSubmit(true)
           return 0
         }
-        
+
         // ⭐ แสดงคำเตือนเมื่อเหลือเวลาน้อยกว่า 5 นาที
-        if (prev <= 300 && !showTimeWarning) {
+        if (prev <= 300 && prev > 0 && !showTimeWarning) {
           setShowTimeWarning(true)
         }
-        
+
         return prev - 1
       })
     }, 1000)
@@ -139,13 +167,30 @@ export default function ExamClient({ examId }: { examId: string }) {
     if (timerRef.current) clearInterval(timerRef.current)
 
     try {
+      // ⭐ คำนวณเวลาที่ใช้จาก started_at_epoch (แม่นยำที่สุด)
+      const startedAtEpoch = examData.started_at_epoch
+      let timeUsed = 0
+
+      if (startedAtEpoch) {
+        const currentTimeEpoch = Math.floor(Date.now() / 1000)
+        timeUsed = currentTimeEpoch - startedAtEpoch
+      } else {
+        // Fallback: คำนวณจาก countdown
+        timeUsed = examData.duration_minutes * 60 - timeLeft
+      }
+
+      // ป้องกันค่าติดลบ
+      timeUsed = Math.max(0, timeUsed)
+
+      console.log('⏱️ [Submit] เวลาที่ใช้ (วินาที):', timeUsed)
+
       const res = await fetch(`/api/student/exams/${examId}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           attempt_id: examData.attempt_id,
           answers: answers,
-          time_used: examData.duration_minutes * 60 - timeLeft,
+          time_used: timeUsed, // ⭐ ใช้เวลาที่คำนวณจาก epoch
         }),
       })
 
@@ -163,17 +208,16 @@ export default function ExamClient({ examId }: { examId: string }) {
       }
 
       sessionStorage.removeItem('current_exam')
-      
+
       const successMsg = typeof data.message === 'string' ? data.message : 'ส่งข้อสอบเรียบร้อยแล้ว!'
-      
+
       if (autoSubmit) {
         alert(`⏰ หมดเวลา! ระบบส่งข้อสอบอัตโนมัติ\n✅ ${successMsg}`)
       } else {
         alert(`✅ ${successMsg}\nระบบได้รับคำตอบของคุณแล้ว โปรดรอประกาศผลจากอาจารย์`)
       }
-      
+
       router.push('/dashboard')
-      
     } catch (err: any) {
       console.error('❌ Submit Error:', err)
       const msg = typeof err.message === 'string' ? err.message : 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
@@ -231,7 +275,7 @@ export default function ExamClient({ examId }: { examId: string }) {
               </button>
             </div>
           </div>
-          
+
           {/* ⭐ แถบแสดงเวลาหมด */}
           {endTimeFormatted && (
             <div className="flex items-center justify-between text-xs bg-white/10 rounded-lg px-3 py-1.5">
@@ -241,7 +285,7 @@ export default function ExamClient({ examId }: { examId: string }) {
                   <strong>จะหมดเวลาเมื่อ:</strong> {endTimeFormatted}
                 </span>
               </div>
-              {timeLeft < 300 && (
+              {timeLeft < 300 && timeLeft > 0 && (
                 <div className="flex items-center gap-1 text-yellow-200 font-semibold">
                   <span>⚠️</span>
                   <span>เหลือเวลาอีก {formatTime(timeLeft)}</span>
@@ -256,7 +300,7 @@ export default function ExamClient({ examId }: { examId: string }) {
       {showTimeWarning && timeLeft > 0 && (
         <div className="bg-orange-100 border-b-2 border-orange-400 px-4 py-2 text-center">
           <p className="text-orange-800 font-semibold">
-            ⚠️ เหลือเวลาอีก {formatTime(timeLeft)} นาที! กรุณารีบส่งข้อสอบ
+            ⚠️ เหลือเวลาอีก {formatTime(timeLeft)}! กรุณารีบส่งข้อสอบ
           </p>
         </div>
       )}
@@ -361,7 +405,7 @@ export default function ExamClient({ examId }: { examId: string }) {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md p-4 sticky top-24">
               <h4 className="font-bold text-gray-800 mb-3">📋 รายการข้อสอบ</h4>
-              
+
               {/* ⭐ แสดงเวลาหมดใน sidebar */}
               {endTimeFormatted && (
                 <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">

@@ -89,7 +89,7 @@ export default function DashboardPage() {
       })
     })
 
-    setCountdowns(prev => {
+    setCountdowns((prev) => {
       if (JSON.stringify(prev) === JSON.stringify(newCountdowns) && !hasUpcoming) {
         return prev
       }
@@ -196,7 +196,7 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           student_id: studentId,
-          client_time: new Date().toISOString()
+          client_time: new Date().toISOString(),
         }),
       })
       const data = await res.json()
@@ -211,13 +211,13 @@ export default function DashboardPage() {
 
       const examsList = data.exams || []
       console.log('📋 [loadExams] จำนวนข้อสอบที่ได้:', examsList.length)
-      
+
       if (examsList.length > 0) {
         console.log('📋 [loadExams] ตัวอย่างข้อสอบแรก:', {
           id: examsList[0].id,
           title: examsList[0].title,
           sessionsCount: examsList[0].sessions?.length,
-          firstSession: examsList[0].sessions?.[0]
+          firstSession: examsList[0].sessions?.[0],
         })
       }
 
@@ -243,7 +243,7 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           student_id: student.id,
-          session_id: sessionId
+          session_id: sessionId,
         }),
       })
       const data = await res.json()
@@ -261,20 +261,25 @@ export default function DashboardPage() {
 
       console.log('🕐 [handleStartExam] Session ที่เลือก:', selectedSession)
 
-      // ⭐ บันทึกข้อมูลลง sessionStorage พร้อม end_time
-      sessionStorage.setItem('current_exam', JSON.stringify({
-        exam_id: examId,
-        session_id: sessionId,
-        attempt_id: data.attempt_id,
-        questions: data.questions,
-        started_at: data.started_at,
-        duration_minutes: data.exam.duration_minutes,
-        end_time: selectedSession?.end_time || null, // ⭐ เพิ่ม end_time
-      }))
+      // ⭐ บันทึกข้อมูลลง sessionStorage พร้อม started_at_epoch และ end_time
+      sessionStorage.setItem(
+        'current_exam',
+        JSON.stringify({
+          exam_id: examId,
+          session_id: sessionId,
+          attempt_id: data.attempt_id,
+          questions: data.questions,
+          started_at: data.started_at,
+          started_at_epoch: data.started_at_epoch, // ⭐ เพิ่ม epoch time
+          duration_minutes: data.exam.duration_minutes,
+          end_time: data.end_time || selectedSession?.end_time || null, // ⭐ เพิ่ม end_time
+        })
+      )
 
       console.log('✅ [handleStartExam] บันทึกข้อมูลลง sessionStorage:', {
         exam_id: examId,
-        end_time: selectedSession?.end_time
+        started_at_epoch: data.started_at_epoch,
+        end_time: data.end_time || selectedSession?.end_time,
       })
 
       router.push(`/student/exam/${examId}`)

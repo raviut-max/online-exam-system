@@ -8,10 +8,9 @@ const supabase = createClient(
 
 /**
  * ⭐ แปลง string เวลาเป็น timestamp (ms) โดยตีความว่าเป็นเวลาไทย (UTC+7)
- *    ถ้า string ไม่มี timezone ต่อท้าย (เช่น "2026-11-10T17:01:00")
- *    ถ้ามี timezone อยู่แล้ว (Z หรือ +07:00) จะใช้ตามนั้น
- *
- *    ป้องกันปัญหา Vercel (UTC) ตีความเวลาคลาดจากเครื่องผู้ใช้ (ไทย) 7 ชั่วโมง
+ * ถ้า string ไม่มี timezone ต่อท้าย (เช่น "2026-11-10T17:01:00")
+ * ถ้ามี timezone อยู่แล้ว (Z หรือ +07:00) จะใช้ตามนั้น
+ * ป้องกันปัญหา Vercel (UTC) ตีความเวลาคลาดจากเครื่องผู้ใช้ (ไทย) 7 ชั่วโมง
  */
 function parseBangkokTime(value: string | Date): number {
   if (value instanceof Date) return value.getTime()
@@ -74,6 +73,7 @@ export async function POST(
     if (now < startTime) {
       return NextResponse.json({ error: 'รอบสอบยังไม่เริ่ม' }, { status: 403 })
     }
+
     if (now > endTime) {
       return NextResponse.json({ error: 'รอบสอบหมดเวลาแล้ว' }, { status: 403 })
     }
@@ -114,20 +114,21 @@ export async function POST(
         if (q.option_b) opts.push({ key: 'B', value: q.option_b })
         if (q.option_c) opts.push({ key: 'C', value: q.option_c })
         if (q.option_d) opts.push({ key: 'D', value: q.option_d })
-        if (q.option_e) opts.push({ key: 'E', value: q.option_e }) // ⭐ เพิ่ม option_e
-        if (q.option_f) opts.push({ key: 'F', value: q.option_f }) // ⭐ เพิ่ม option_f
+        if (q.option_e) opts.push({ key: 'E', value: q.option_e })
+        if (q.option_f) opts.push({ key: 'F', value: q.option_f })
 
         opts.sort(() => Math.random() - 0.5)
 
-        const newQ = { 
-          ...q, 
-          option_a: null, 
-          option_b: null, 
-          option_c: null, 
-          option_d: null, 
-          option_e: null, 
-          option_f: null 
+        const newQ = {
+          ...q,
+          option_a: null,
+          option_b: null,
+          option_c: null,
+          option_d: null,
+          option_e: null,
+          option_f: null,
         }
+
         const labels = ['option_a', 'option_b', 'option_c', 'option_d', 'option_e', 'option_f']
         const keyMap: Record<string, string> = {}
 
@@ -144,13 +145,15 @@ export async function POST(
 
     // 7. สร้าง attempt
     const startedAt = new Date()
+    const startedAtEpoch = Math.floor(startedAt.getTime() / 1000) // ⭐ timestamp เป็นวินาที
+
     const { data: attempt, error: createError } = await supabase
       .from('exam_attempts')
       .insert({
         session_id: session_id,
         student_id: student_id,
         started_at: startedAt.toISOString(),
-        started_at_epoch: Math.floor(startedAt.getTime() / 1000),
+        started_at_epoch: startedAtEpoch, // ⭐ บันทึก epoch time
         answers: {},
       })
       .select()
@@ -158,7 +161,9 @@ export async function POST(
 
     if (createError) {
       console.error('❌ [Start Exam] สร้าง attempt ไม่สำเร็จ:', createError)
-      return NextResponse.json({ error: 'ไม่สามารถเริ่มทำข้อสอบได้: ' + createError.message }, { status: 500 })
+      return NextResponse.json({
+        error: 'ไม่สามารถเริ่มทำข้อสอบได้: ' + createError.message,
+      }, { status: 500 })
     }
 
     // 8. ลบ correct_answer ออกจาก questions ก่อนส่งกลับ
@@ -170,7 +175,8 @@ export async function POST(
     console.log('✅ [Start Exam] ส่งข้อมูลข้อสอบ:', {
       exam_id: examId,
       questions_count: questionsForStudent.length,
-      has_option_e: questionsForStudent[0]?.option_e ? 'Yes' : 'No'
+      has_option_e: questionsForStudent[0]?.option_e ? 'Yes' : 'No',
+      started_at_epoch: startedAtEpoch,
     })
 
     return NextResponse.json({
@@ -184,10 +190,14 @@ export async function POST(
       },
       questions: questionsForStudent,
       started_at: startedAt.toISOString(),
+      started_at_epoch: startedAtEpoch, // ⭐ ส่ง epoch time กลับไปให้ Client
+      end_time: session.end_time, // ⭐ ส่ง end_time กลับไปให้ Client
     })
 
   } catch (error: any) {
     console.error('💥 [Start Exam] CRITICAL ERROR:', error)
-    return NextResponse.json({ error: error.message || 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' }, { status: 500 })
+    return NextResponse.json({
+      error: error.message || 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์',
+    }, { status: 500 })
   }
 }
