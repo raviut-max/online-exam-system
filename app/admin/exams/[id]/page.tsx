@@ -1,32 +1,48 @@
+// app/admin/exams/[id]/page.tsx
 import { Suspense } from 'react'
-import AdminExamDetailClient from './AdminExamDetailClient'
+import ExamDetailClient from './ExamDetailClient'
+// ⚠️ ปรับ path และวิธีสร้าง client ให้ตรงกับโปรเจกต์ของคุณ
+import { createClient } from '@/lib/supabase/server'
 
-/**
- * Server Component
- * - ห่อ Client Component ด้วย <Suspense>
- * - รับ params.id แล้วส่งต่อให้ Client Component
- */
-export default async function AdminExamDetailPage({
+function Loading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="text-center">
+        <div className="text-4xl mb-4 animate-bounce">⏳</div>
+        <p className="text-gray-500 text-lg animate-pulse">
+          กำลังโหลดข้อมูลข้อสอบ...
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// component นี้อยู่ใต้ <Suspense> จึงเข้าถึง params / ฐานข้อมูลแบบ dynamic ได้
+async function ExamDetailLoader({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
 
+  const supabase = await createClient()
+  const { data: exam } = await supabase
+    .from('exams')
+    .select('*, courses(course_name)')
+    .eq('id', id)
+    .single()
+
+  return <ExamDetailClient exam={exam} />
+}
+
+export default function AdminExamDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gray-100">
-          <div className="text-center">
-            <div className="text-4xl mb-4 animate-bounce">⏳</div>
-            <p className="text-gray-500 text-lg animate-pulse">
-              กำลังโหลดข้อมูลข้อสอบ...
-            </p>
-          </div>
-        </div>
-      }
-    >
-      <AdminExamDetailClient examId={id} />
+    <Suspense fallback={<Loading />}>
+      <ExamDetailLoader params={params} />
     </Suspense>
   )
 }
