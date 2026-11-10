@@ -1,0 +1,820 @@
+{
+  "metadata": {
+    "course_code": "CPE3101",
+    "course_name": "ระบบฐานข้อมูล",
+    "section": "002",
+    "title": "สอบปลายภาค (Final Examination)",
+    "description": "ครอบคลุมเนื้อหาสัปดาห์ที่ 1-12: ER Model, Normalization, SQL DDL/DML/DQL, JOIN, Advanced SQL (รูปแบบ 5 ตัวเลือก)",
+    "exam_type": "final",
+    "duration_minutes": 150,
+    "passing_score": 50,
+    "total_points": 50,
+    "shuffle_questions": true,
+    "shuffle_options": true,
+    "max_attempts": 1,
+    "start_time": "2026-11-20T09:00:00+07:00",
+    "end_time": "2026-11-20T12:00:00+07:00"
+  },
+  "questions": [
+    {
+      "order": 1,
+      "topic": "Database Fundamentals",
+      "difficulty": "easy",
+      "question": "DBMS ย่อมาจากคำว่าอะไร?",
+      "options": {
+        "A": "Data Making System",
+        "B": "Database Management System",
+        "C": "Digital Memory System",
+        "D": "Database Model System",
+        "E": "Data Base Management Software"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "DBMS ย่อมาจาก Database Management System คือซอฟต์แวร์สำหรับจัดการฐานข้อมูลอย่างเป็นระบบ"
+    },
+    {
+      "order": 2,
+      "topic": "Database Fundamentals",
+      "difficulty": "easy",
+      "question": "ข้อใดคือปัญหาหลักของระบบไฟล์ (File-Based System) ที่ระบบฐานข้อมูลเข้ามาแก้ไข?",
+      "options": {
+        "A": "ไม่สามารถเก็บข้อมูลประเภทข้อความได้",
+        "B": "เกิดความซ้ำซ้อนของข้อมูล (Data Redundancy) และข้อมูลไม่สอดคล้องกัน",
+        "C": "ระบบไฟล์มีความปลอดภัยสูงกว่าระบบฐานข้อมูล",
+        "D": "ระบบไฟล์รองรับการเข้าถึงข้อมูลพร้อมกัน (Concurrency) ได้ดีกว่า",
+        "E": "ระบบไฟล์ใช้พื้นที่จัดเก็บในฮาร์ดดิสก์น้อยกว่าระบบฐานข้อมูลเสมอ"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "ระบบไฟล์มักเกิด Data Redundancy และ Data Inconsistency เมื่อมีการแก้ไขข้อมูลในไฟล์หนึ่งแต่ลืมแก้ไขอีกไฟล์"
+    },
+    {
+      "order": 3,
+      "topic": "Database Architecture",
+      "difficulty": "easy",
+      "question": "สถาปัตยกรรม 3 ระดับ (Three-Schema Architecture) ประกอบด้วยระดับใดบ้าง?",
+      "options": {
+        "A": "Input, Process, Output",
+        "B": "Physical, Logical, View",
+        "C": "Client, Server, Database",
+        "D": "Frontend, Backend, Middleware",
+        "E": "Network, Hierarchical, Relational"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "Three-Schema Architecture ประกอบด้วย Physical Level (Internal), Logical Level (Conceptual) และ View Level (External)"
+    },
+    {
+      "order": 4,
+      "topic": "ER Model",
+      "difficulty": "easy",
+      "question": "ใน ER Diagram สัญลักษณ์ 'สี่เหลี่ยมผืนผ้า' ใช้แทนอะไร?",
+      "options": {
+        "A": "Attribute",
+        "B": "Relationship",
+        "C": "Entity",
+        "D": "Primary Key",
+        "E": "Foreign Key"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "สี่เหลี่ยมผืนผ้า = Entity, วงรี = Attribute, สี่เหลี่ยมข้าวหลามตัด = Relationship"
+    },
+    {
+      "order": 5,
+      "topic": "ER Model",
+      "difficulty": "easy",
+      "question": "ใน ER Diagram สัญลักษณ์ 'วงรีเส้นคู่' (Double Oval) ใช้แทน Attribute ประเภทใด?",
+      "options": {
+        "A": "Simple Attribute",
+        "B": "Composite Attribute",
+        "C": "Multivalued Attribute",
+        "D": "Derived Attribute",
+        "E": "Key Attribute"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "Multivalued Attribute (เช่น เบอร์โทรหลายเบอร์) ใช้วงรีเส้นคู่ ส่วน Key Attribute จะมีการขีดเส้นใต้"
+    },
+    {
+      "order": 6,
+      "topic": "ER Model",
+      "difficulty": "easy",
+      "question": "Attribute ประเภทใดที่คำนวณได้จาก Attribute อื่น เช่น 'อายุ' คำนวณจาก 'วันเกิด'?",
+      "options": {
+        "A": "Simple Attribute",
+        "B": "Composite Attribute",
+        "C": "Multivalued Attribute",
+        "D": "Derived Attribute",
+        "E": "Stored Attribute"
+      },
+      "correct_answer": "D",
+      "points": 1,
+      "explanation": "Derived Attribute คือ Attribute ที่คำนวณหรือหาได้จาก Attribute อื่น ไม่ต้องเก็บค่าจริงในฐานข้อมูล"
+    },
+    {
+      "order": 7,
+      "topic": "ER Model",
+      "difficulty": "medium",
+      "question": "Entity ที่ไม่สามารถระบุตัวตนได้ด้วยตัวเอง ต้องอาศัย Entity อื่น (Strong Entity) ในการระบุตัวตน เรียกว่าอะไร?",
+      "options": {
+        "A": "Weak Entity",
+        "B": "Derived Entity",
+        "C": "Composite Entity",
+        "D": "Multivalued Entity",
+        "E": "Dependent Attribute"
+      },
+      "correct_answer": "A",
+      "points": 1,
+      "explanation": "Weak Entity ไม่มี Primary Key เป็นของตัวเอง ต้องอาศัย Partial Key และ Foreign Key จาก Strong Entity"
+    },
+    {
+      "order": 8,
+      "topic": "ER Model",
+      "difficulty": "medium",
+      "question": "ความสัมพันธ์แบบ 1:N (One-to-Many) หมายความว่าอย่างไร?",
+      "options": {
+        "A": "1 แถวในตาราง A เกี่ยวข้องกับ 1 แถวในตาราง B",
+        "B": "1 แถวในตาราง A เกี่ยวข้องกับหลายแถวในตาราง B",
+        "C": "หลายแถวในตาราง A เกี่ยวข้องกับหลายแถวในตาราง B",
+        "D": "ไม่มีความสัมพันธ์กัน",
+        "E": "หลายแถวในตาราง A เกี่ยวข้องกับ 1 แถวในตาราง B"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "1:N หมายถึง Entity ฝั่งหนึ่ง 1 ตัว สามารถเกี่ยวข้องกับ Entity อีกฝั่งได้หลายตัว (ข้อ E คือ N:1)"
+    },
+    {
+      "order": 9,
+      "topic": "Relational Model",
+      "difficulty": "easy",
+      "question": "ข้อใดคือคุณสมบัติของ Primary Key?",
+      "options": {
+        "A": "สามารถเป็นค่า NULL ได้",
+        "B": "สามารถซ้ำกันได้",
+        "C": "ต้องไม่ซ้ำกันและไม่เป็น NULL",
+        "D": "ต้องมีมากกว่า 1 คอลัมน์เสมอ",
+        "E": "สามารถเปลี่ยนแปลงค่าได้ตลอดเวลาโดยไม่กระทบตารางอื่น"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "Primary Key ต้อง UNIQUE (ไม่ซ้ำ) และ NOT NULL (ห้ามว่าง) เสมอ และการเปลี่ยนค่า PK มักส่งผลกระทบต่อตารางลูก"
+    },
+    {
+      "order": 10,
+      "topic": "Relational Model",
+      "difficulty": "easy",
+      "question": "Foreign Key (คีย์นอก) มีหน้าที่หลักคืออะไร?",
+      "options": {
+        "A": "ใช้เรียงลำดับข้อมูล",
+        "B": "ใช้เชื่อมโยงความสัมพันธ์ระหว่าง 2 ตาราง",
+        "C": "ใช้ป้องกันข้อมูลซ้ำในตาราง",
+        "D": "ใช้คำนวณผลรวมของข้อมูล",
+        "E": "ใช้สำหรับเร่งความเร็วในการค้นหาข้อมูล"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "Foreign Key ใช้สร้าง Referential Integrity เชื่อมโยงตารางลูกไปยังตารางแม่ (ข้อ E คือหน้าที่ของ Index)"
+    },
+    {
+      "order": 11,
+      "topic": "Normalization",
+      "difficulty": "easy",
+      "question": "เป้าหมายหลักของการทำ Normalization คืออะไร?",
+      "options": {
+        "A": "ทำให้ฐานข้อมูลมีขนาดไฟล์ใหญ่ขึ้น",
+        "B": "ลดความซ้ำซ้อนของข้อมูล (Data Redundancy)",
+        "C": "เพิ่มจำนวนตารางให้มากที่สุด",
+        "D": "ทำให้เขียนคำสั่ง SQL ยาวขึ้น",
+        "E": "ทำให้การเขียน Query ซับซ้อนน้อยลงเสมอ"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "Normalization มีเป้าหมายลด Data Redundancy และป้องกัน Anomaly ต่างๆ (แม้บางครั้งจะทำให้ Query ต้อง JOIN มากขึ้นก็ตาม)"
+    },
+    {
+      "order": 12,
+      "topic": "Normalization",
+      "difficulty": "medium",
+      "question": "หากตารางอยู่ในรูปแบบ 1NF แล้ว จะต้องกำจัด Dependency ประเภทใดจึงจะผ่านเข้าสู่ 2NF?",
+      "options": {
+        "A": "Transitive Dependency",
+        "B": "Partial Dependency",
+        "C": "Full Functional Dependency",
+        "D": "Multivalued Dependency",
+        "E": "Recursive Dependency"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "2NF ต้องกำจัด Partial Dependency (กรณีที่ PK เป็น Composite แล้วคอลัมน์อื่นขึ้นอยู่กับ PK แค่บางคอลัมน์)"
+    },
+    {
+      "order": 13,
+      "topic": "Normalization",
+      "difficulty": "medium",
+      "question": "ข้อใดอธิบาย Third Normal Form (3NF) ได้ถูกต้องที่สุด?",
+      "options": {
+        "A": "ตารางต้องไม่มีข้อมูลซ้ำซ้อนในคอลัมน์",
+        "B": "ตารางต้องไม่มี Partial Dependency",
+        "C": "ตารางต้องไม่มี Transitive Dependency (คอลัมน์ที่ไม่ใช่คีย์หลักต้องไม่ขึ้นอยู่กับคอลัมน์ที่ไม่ใช่คีย์หลักด้วยกันเอง)",
+        "D": "ตารางทุกตารางต้องมี Primary Key เป็นชนิดข้อมูล INT เท่านั้น",
+        "E": "ตารางต้องไม่มี Multi-valued Attribute"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "3NF ต้องไม่มี Transitive Dependency คอลัมน์ปกติต้องขึ้นอยู่กับ PK เท่านั้น ไม่ขึ้นอยู่กับคอลัมน์ปกติด้วยกัน (ข้อ E คือเงื่อนไขของ 1NF)"
+    },
+    {
+      "order": 14,
+      "topic": "Normalization",
+      "difficulty": "medium",
+      "question": "ข้อใดคือตัวอย่างของ Deletion Anomaly (ความผิดปกติจากการลบข้อมูล)?",
+      "options": {
+        "A": "การแก้ไขที่อยู่ของลูกค้าแล้วลืมแก้ไขในตารางออเดอร์",
+        "B": "การไม่สามารถเพิ่มข้อมูลพนักงานใหม่ได้ เพราะยังไม่ได้กำหนดแผนกให้",
+        "C": "การลบข้อมูลวิชาเรียนออกจากระบบ ทำให้ประวัติการลงทะเบียนของนักศึกษาที่เรียนวิชานั้นหายไปทั้งหมด",
+        "D": "การเก็บข้อมูลชื่อคณะซ้ำในทุกแถวของตารางนักศึกษา",
+        "E": "การเพิ่มข้อมูลใหม่แล้วทำให้ระบบทำงานช้าลงอย่างเห็นได้ชัด"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "Deletion Anomaly เกิดเมื่อการลบข้อมูลสิ่งหนึ่งทำให้ข้อมูลอีกสิ่งหนึ่งที่เกี่ยวข้องกันหายไปโดยไม่ตั้งใจ"
+    },
+    {
+      "order": 15,
+      "topic": "SQL DDL",
+      "difficulty": "easy",
+      "question": "ข้อใดจัดอยู่ในกลุ่มคำสั่ง DDL (Data Definition Language)?",
+      "options": {
+        "A": "SELECT, INSERT",
+        "B": "CREATE, ALTER, DROP",
+        "C": "INSERT, UPDATE, DELETE",
+        "D": "GRANT, REVOKE",
+        "E": "COMMIT, ROLLBACK"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "DDL คือคำสั่งจัดการโครงสร้าง (CREATE, ALTER, DROP, TRUNCATE) ส่วนข้อ E คือ TCL (Transaction Control)"
+    },
+    {
+      "order": 16,
+      "topic": "SQL DDL",
+      "difficulty": "easy",
+      "question": "คำสั่งใดใช้สำหรับ 'สร้างตารางใหม่' ในฐานข้อมูล?",
+      "options": {
+        "A": "MAKE TABLE",
+        "B": "NEW TABLE",
+        "C": "CREATE TABLE",
+        "D": "ADD TABLE",
+        "E": "BUILD TABLE"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "ใช้คำสั่ง CREATE TABLE เพื่อสร้างตารางใหม่ในฐานข้อมูล"
+    },
+    {
+      "order": 17,
+      "topic": "SQL DDL",
+      "difficulty": "easy",
+      "question": "หากต้องการเก็บ 'เลขบัตรประชาชน' ซึ่งมีความยาว 13 หลักคงที่เสมอ ควรเลือกใช้ Data Type ใด?",
+      "options": {
+        "A": "VARCHAR(13)",
+        "B": "CHAR(13)",
+        "C": "INT",
+        "D": "TEXT",
+        "E": "VARCHAR(20)"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "CHAR(13) เหมาะกับข้อมูลความยาวคงที่ (Fixed Length) จะค้นหาและจัดเก็บได้เร็วกว่าและประหยัดพื้นที่กว่า VARCHAR"
+    },
+    {
+      "order": 18,
+      "topic": "SQL DDL",
+      "difficulty": "medium",
+      "question": "Constraint ใดที่ใช้เพื่อป้องกันไม่ให้มีการบันทึกข้อมูลซ้ำ (Duplicate Data) ในคอลัมน์นั้นๆ?",
+      "options": {
+        "A": "NOT NULL",
+        "B": "PRIMARY KEY",
+        "C": "UNIQUE",
+        "D": "CHECK",
+        "E": "FOREIGN KEY"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "UNIQUE ใช้ป้องกันข้อมูลซ้ำในคอลัมน์ที่ไม่ใช่ Primary Key (ตารางสามารถมี UNIQUE ได้หลายคอลัมน์)"
+    },
+    {
+      "order": 19,
+      "topic": "SQL DDL",
+      "difficulty": "easy",
+      "question": "Constraint 'NOT NULL' หมายความว่าอย่างไร?",
+      "options": {
+        "A": "คอลัมน์นี้ต้องมีค่า ห้ามเว้นว่าง",
+        "B": "คอลัมน์นี้ต้องมีค่าที่ไม่ซ้ำกัน",
+        "C": "คอลัมน์นี้ต้องมีค่าเริ่มต้น",
+        "D": "คอลัมน์นี้ต้องเป็นคีย์หลัก",
+        "E": "คอลัมน์นี้ต้องมีการเข้ารหัสข้อมูล"
+      },
+      "correct_answer": "A",
+      "points": 1,
+      "explanation": "NOT NULL บังคับว่าคอลัมน์นั้นต้องมีค่า ห้ามเป็น NULL (ว่าง)"
+    },
+    {
+      "order": 20,
+      "topic": "SQL DDL",
+      "difficulty": "medium",
+      "question": "ในการสร้างตารางที่มีความสัมพันธ์กัน (Foreign Key) ควรสร้างตารางใดก่อน?",
+      "options": {
+        "A": "ตารางลูก (Child Table) ก่อนตารางแม่ (Parent Table)",
+        "B": "ตารางแม่ (Parent Table) ก่อนตารางลูก (Child Table)",
+        "C": "สร้างพร้อมกันได้ในคำสั่งเดียว",
+        "D": "ลำดับการสร้างไม่มีผลต่อระบบฐานข้อมูล",
+        "E": "สร้างสลับกันได้เลยโดยไม่เกิด Error"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "ต้องสร้างตารางแม่ (Parent) ก่อน เพราะตารางลูกต้องอ้างอิง Foreign Key ไปยังตารางแม่ที่มีอยู่จริงแล้ว"
+    },
+    {
+      "order": 21,
+      "topic": "SQL DML",
+      "difficulty": "easy",
+      "question": "คำสั่งใดใช้สำหรับ 'เพิ่มข้อมูลแถวใหม่' เข้าไปในตาราง?",
+      "options": {
+        "A": "ADD",
+        "B": "INSERT",
+        "C": "UPDATE",
+        "D": "CREATE",
+        "E": "APPEND"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "INSERT ใช้เพิ่มข้อมูลแถวใหม่, UPDATE แก้ไข, DELETE ลบ, CREATE สร้างโครงสร้าง"
+    },
+    {
+      "order": 22,
+      "topic": "SQL DML",
+      "difficulty": "easy",
+      "question": "คำสั่งใดใช้สำหรับ 'แก้ไขข้อมูล' ที่มีอยู่แล้วในตาราง?",
+      "options": {
+        "A": "CHANGE",
+        "B": "MODIFY",
+        "C": "UPDATE",
+        "D": "ALTER",
+        "E": "REPLACE"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "UPDATE ใช้แก้ไขข้อมูลที่มีอยู่แล้วในตาราง"
+    },
+    {
+      "order": 23,
+      "topic": "SQL DML",
+      "difficulty": "medium",
+      "question": "ข้อใดคือความแตกต่างที่สำคัญที่สุดระหว่างคำสั่ง DELETE และ TRUNCATE?",
+      "options": {
+        "A": "DELETE ลบข้อมูลทั้งตาราง แต่ TRUNCATE ลบได้เฉพาะบางแถว",
+        "B": "DELETE สามารถใช้เงื่อนไข WHERE ได้ และ Rollback ได้ ส่วน TRUNCATE ลบทั้งตารางและรีเซ็ต Auto-Increment",
+        "C": "TRUNCATE ช้ากว่า DELETE เพราะต้องตรวจสอบ Foreign Key ทุกแถว",
+        "D": "DELETE เป็นคำสั่ง DDL ส่วน TRUNCATE เป็นคำสั่ง DML",
+        "E": "TRUNCATE สามารถใช้เงื่อนไข WHERE ได้ แต่ DELETE ใช้ไม่ได้"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "DELETE เป็น DML (ใช้ WHERE ได้, Rollback ได้) ส่วน TRUNCATE เป็น DDL (ล้างทั้งตาราง, รีเซ็ต Auto-Increment, เร็วกว่า)"
+    },
+    {
+      "order": 24,
+      "topic": "SQL DML",
+      "difficulty": "hard",
+      "question": "หากตาราง Order มี Foreign Key ชี้ไปที่ตาราง Customer และมีการกำหนด ON DELETE CASCADE ไว้ จะเกิดอะไรขึ้นเมื่อลบข้อมูลลูกค้า?",
+      "options": {
+        "A": "ระบบจะปฏิเสธการลบ และแสดง Error Message",
+        "B": "ข้อมูลลูกค้าถูกลบ แต่ข้อมูลออเดอร์ยังคงอยู่ โดยช่อง Customer_ID กลายเป็น NULL",
+        "C": "ข้อมูลลูกค้าและข้อมูลออเดอร์ทั้งหมดของลูกค้าคนนั้นจะถูกลบออกไปพร้อมกัน",
+        "D": "ข้อมูลออเดอร์จะถูกลบ แต่ข้อมูลลูกค้าจะยังคงอยู่",
+        "E": "ระบบจะสร้างตารางสำรองเก็บข้อมูลออเดอร์นั้นไว้ก่อน"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "ON DELETE CASCADE หมายถึงเมื่อลบข้อมูลฝั่งแม่ ข้อมูลฝั่งลูกที่อ้างอิงอยู่จะถูกลบตามไปด้วยอัตโนมัติ"
+    },
+    {
+      "order": 25,
+      "topic": "SQL DML",
+      "difficulty": "hard",
+      "question": "ทำไมในการเก็บข้อมูล 'ราคาสินค้า' หรือ 'ยอดเงิน' จึงควรใช้ Data Type DECIMAL แทน FLOAT?",
+      "options": {
+        "A": "เพราะ DECIMAL ใช้พื้นที่จัดเก็บน้อยกว่า",
+        "B": "เพราะ FLOAT ไม่สามารถเก็บค่าติดลบได้",
+        "C": "เพราะ FLOAT ใช้การคำนวณแบบ Binary Floating Point ซึ่งอาจทำให้เกิดค่าคลาดเคลื่อน (Precision Loss)",
+        "D": "เพราะ DECIMAL รองรับการคำนวณภาษีมูลค่าเพิ่ม (VAT) ได้โดยตรง",
+        "E": "เพราะ DECIMAL รองรับตัวอักษรและตัวเลขผสมกันได้"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "FLOAT/DOUBLE เก็บค่าโดยประมาณ (Approximate) ทำให้การคำนวณทางการเงินอาจผิดพลาด DECIMAL เก็บค่าที่แน่นอน (Exact)"
+    },
+    {
+      "order": 26,
+      "topic": "SQL DQL",
+      "difficulty": "easy",
+      "question": "คำสั่งใดใช้สำหรับ 'ดึงข้อมูล' ออกจากฐานข้อมูล?",
+      "options": {
+        "A": "GET",
+        "B": "PULL",
+        "C": "SELECT",
+        "D": "SHOW",
+        "E": "FETCH"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "SELECT ใช้ดึงข้อมูลออกจากฐานข้อมูล (FETCH มักใช้กับ Cursor)"
+    },
+    {
+      "order": 27,
+      "topic": "SQL DQL",
+      "difficulty": "easy",
+      "question": "สัญลักษณ์ '*' ในคำสั่ง 'SELECT * FROM Table' หมายถึงอะไร?",
+      "options": {
+        "A": "เลือกเฉพาะคอลัมน์แรก",
+        "B": "เลือกทุกคอลัมน์ในตาราง",
+        "C": "เลือกเฉพาะแถวแรก",
+        "D": "เลือกข้อมูลที่ซ้ำกัน",
+        "E": "เลือกเฉพาะคอลัมน์ที่เป็น Primary Key"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "SELECT * หมายถึงเลือกทุกคอลัมน์ในตาราง (แต่ในทางปฏิบัติควรระบุชื่อคอลัมน์เพื่อประสิทธิภาพ)"
+    },
+    {
+      "order": 28,
+      "topic": "SQL DQL",
+      "difficulty": "easy",
+      "question": "Clause ใดใช้สำหรับ 'กรองข้อมูล' เฉพาะแถวที่ต้องการ?",
+      "options": {
+        "A": "FILTER",
+        "B": "WHERE",
+        "C": "GROUP BY",
+        "D": "ORDER BY",
+        "E": "SEARCH"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "WHERE ใช้กรองข้อมูลรายแถวก่อนจัดกลุ่ม"
+    },
+    {
+      "order": 29,
+      "topic": "SQL DQL",
+      "difficulty": "easy",
+      "question": "หากต้องการค้นหาข้อมูลที่ยังไม่มีค่า (เป็นค่าว่างในระบบ) ต้องเขียนเงื่อนไขอย่างไร?",
+      "options": {
+        "A": "WHERE Column = NULL",
+        "B": "WHERE Column = ' '",
+        "C": "WHERE Column IS NULL",
+        "D": "WHERE Column = 'NULL'",
+        "E": "WHERE Column EQUALS NULL"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "ใน SQL ห้ามใช้ = NULL เด็ดขาด ต้องใช้ IS NULL หรือ IS NOT NULL เท่านั้น"
+    },
+    {
+      "order": 30,
+      "topic": "SQL DQL",
+      "difficulty": "medium",
+      "question": "ข้อใดอธิบายความแตกต่างระหว่าง WHERE และ HAVING ได้ถูกต้อง?",
+      "options": {
+        "A": "WHERE ใช้กรองข้อมูลหลัง GROUP BY ส่วน HAVING ใช้กรองข้อมูลก่อน GROUP BY",
+        "B": "WHERE สามารถใช้กับ Aggregate Function (เช่น SUM, COUNT) ได้ ส่วน HAVING ใช้ไม่ได้",
+        "C": "WHERE ใช้กรองข้อมูลรายแถวก่อนจัดกลุ่ม ส่วน HAVING ใช้กรองข้อมูลหลังจัดกลุ่มแล้ว",
+        "D": "WHERE และ HAVING ใช้งานแทนกันได้ในทุกสถานการณ์",
+        "E": "WHERE ใช้ได้เฉพาะกับตัวเลข ส่วน HAVING ใช้ได้กับข้อความ"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "WHERE ทำงานก่อน GROUP BY (กรองรายแถว) ส่วน HAVING ทำงานหลัง GROUP BY (กรองกลุ่ม และใช้กับ Aggregate Function ได้)"
+    },
+    {
+      "order": 31,
+      "topic": "SQL DQL",
+      "difficulty": "medium",
+      "question": "ข้อใดเรียงลำดับการประมวลผล (Execution Order) ของ SQL ได้ถูกต้อง?",
+      "options": {
+        "A": "SELECT → FROM → WHERE → GROUP BY → HAVING → ORDER BY",
+        "B": "FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY",
+        "C": "FROM → SELECT → WHERE → GROUP BY → HAVING → ORDER BY",
+        "D": "WHERE → FROM → GROUP BY → SELECT → HAVING → ORDER BY",
+        "E": "SELECT → WHERE → FROM → GROUP BY → HAVING → ORDER BY"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "Database ประมวลผล: FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT"
+    },
+    {
+      "order": 32,
+      "topic": "SQL DQL",
+      "difficulty": "easy",
+      "question": "Clause ใดใช้สำหรับ 'จัดกลุ่มข้อมูล' ที่มีค่าเหมือนกัน?",
+      "options": {
+        "A": "SORT BY",
+        "B": "GROUP BY",
+        "C": "COLLECT BY",
+        "D": "ORDER BY",
+        "E": "PARTITION BY"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "GROUP BY ใช้จัดกลุ่มข้อมูลตามค่าในคอลัมน์ที่กำหนด (PARTITION BY เป็นของ Window Function)"
+    },
+    {
+      "order": 33,
+      "topic": "SQL DQL",
+      "difficulty": "medium",
+      "question": "ข้อใดคือกฎเหล็กของการใช้ GROUP BY?",
+      "options": {
+        "A": "คอลัมน์ทุกคอลัมน์ที่ปรากฏใน SELECT ต้องอยู่ใน GROUP BY เสมอ",
+        "B": "คอลัมน์ที่อยู่ใน GROUP BY ห้ามใช้ Aggregate Function",
+        "C": "คอลัมน์ใน SELECT ที่ไม่ใช่ Aggregate Function ต้องปรากฏใน GROUP BY",
+        "D": "GROUP BY ต้องใช้คู่กับ HAVING เสมอ",
+        "E": "คอลัมน์ที่อยู่ใน GROUP BY ต้องเป็นชนิดข้อมูลตัวเลขเท่านั้น"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "กฎเหล็ก: คอลัมน์ใน SELECT ที่ไม่ได้ห่อหุ้มด้วย Aggregate Function ต้องอยู่ใน GROUP BY"
+    },
+    {
+      "order": 34,
+      "topic": "SQL DQL",
+      "difficulty": "easy",
+      "question": "ฟังก์ชันใดใช้สำหรับ 'นับจำนวนแถว' ของข้อมูล?",
+      "options": {
+        "A": "SUM()",
+        "B": "COUNT()",
+        "C": "TOTAL()",
+        "D": "NUMBER()",
+        "E": "LENGTH()"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "COUNT() ใช้นับจำนวนแถว, SUM() หาผลรวม, AVG() หาค่าเฉลี่ย"
+    },
+    {
+      "order": 35,
+      "topic": "SQL DQL",
+      "difficulty": "easy",
+      "question": "ฟังก์ชันใดใช้สำหรับหา 'ค่าเฉลี่ย'?",
+      "options": {
+        "A": "MID()",
+        "B": "AVERAGE()",
+        "C": "AVG()",
+        "D": "MEAN()",
+        "E": "MEDIAN()"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "AVG() ใช้หาค่าเฉลี่ยของคอลัมน์ตัวเลข"
+    },
+    {
+      "order": 36,
+      "topic": "SQL DQL",
+      "difficulty": "medium",
+      "question": "เราสามารถใช้ฟังก์ชัน Aggregate (เช่น SUM, COUNT) ในเงื่อนไข WHERE ได้หรือไม่?",
+      "options": {
+        "A": "ได้เสมอ",
+        "B": "ไม่ได้ (ต้องใช้ HAVING แทน)",
+        "C": "ได้เฉพาะตารางที่มีข้อมูลน้อย",
+        "D": "ได้เฉพาะเมื่อใช้ร่วมกับ ORDER BY",
+        "E": "ได้ ถ้าใช้เครื่องหมาย = แทน >"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "WHERE ทำงานก่อน GROUP BY จึงไม่รู้จัก Aggregate Function ต้องใช้ HAVING แทน"
+    },
+    {
+      "order": 37,
+      "topic": "JOIN Operations",
+      "difficulty": "easy",
+      "question": "INNER JOIN ให้ผลลัพธ์อย่างไร?",
+      "options": {
+        "A": "แสดงข้อมูลทั้งหมดจากตารางซ้าย",
+        "B": "แสดงข้อมูลทั้งหมดจากตารางขวา",
+        "C": "แสดงเฉพาะแถวที่มีข้อมูลตรงกันในทั้งสองตาราง",
+        "D": "แสดงข้อมูลทั้งหมดจากทั้งสองตาราง",
+        "E": "แสดงข้อมูลจากตารางซ้ายทั้งหมด และเฉพาะที่ตรงกันจากตารางขวา"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "INNER JOIN เอาเฉพาะ Intersection (ส่วนที่ซ้อนกัน) ของทั้ง 2 ตาราง"
+    },
+    {
+      "order": 38,
+      "topic": "JOIN Operations",
+      "difficulty": "easy",
+      "question": "LEFT JOIN ให้ผลลัพธ์อย่างไร?",
+      "options": {
+        "A": "แสดงข้อมูลทั้งหมดจากตารางซ้าย และข้อมูลที่ตรงกันจากตารางขวา",
+        "B": "แสดงข้อมูลทั้งหมดจากตารางขวา และข้อมูลที่ตรงกันจากตารางซ้าย",
+        "C": "แสดงเฉพาะข้อมูลที่ตรงกัน",
+        "D": "แสดงผลคูณของทุกแถว",
+        "E": "แสดงข้อมูลทั้งหมดจากทั้งสองตาราง โดยแถวที่ไม่ตรงกันจะเป็น NULL"
+      },
+      "correct_answer": "A",
+      "points": 1,
+      "explanation": "LEFT JOIN เอาตารางซ้ายทั้งหมด ถ้าตารางขวาไม่มีข้อมูลให้เป็น NULL (ข้อ E คือ FULL OUTER JOIN)"
+    },
+    {
+      "order": 39,
+      "topic": "JOIN Operations",
+      "difficulty": "medium",
+      "question": "หากต้องการแสดงข้อมูล 'ลูกค้าทุกคน' พร้อม 'ออเดอร์ของพวกเขา' (โดยลูกค้าที่ยังไม่เคยสั่งออเดอร์ก็ต้องแสดงด้วย แต่ช่องออเดอร์ให้เป็น NULL) ต้องใช้ JOIN แบบใด?",
+      "options": {
+        "A": "INNER JOIN",
+        "B": "LEFT JOIN",
+        "C": "RIGHT JOIN",
+        "D": "CROSS JOIN",
+        "E": "NATURAL JOIN"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "LEFT JOIN เอาตารางซ้าย (Customer) ทั้งหมด ถ้าตารางขวา (Order) ไม่มีข้อมูลให้เป็น NULL"
+    },
+    {
+      "order": 40,
+      "topic": "JOIN Operations",
+      "difficulty": "medium",
+      "question": "หากตาราง Size มี 4 แถว และตาราง Color มี 5 แถว การทำ CROSS JOIN ระหว่าง 2 ตารางนี้ จะได้ผลลัพธ์ทั้งหมดกี่แถว?",
+      "options": {
+        "A": "9 แถว",
+        "B": "12 แถว",
+        "C": "20 แถว",
+        "D": "100 แถว",
+        "E": "25 แถว"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "CROSS JOIN คือ Cartesian Product จำนวนแถว = 4 × 5 = 20 แถว"
+    },
+    {
+      "order": 41,
+      "topic": "JOIN Operations",
+      "difficulty": "medium",
+      "question": "SELF JOIN มีประโยชน์มากที่สุดในสถานการณ์ใด?",
+      "options": {
+        "A": "การรวมข้อมูลจากตารางลูกค้าและตารางออเดอร์",
+        "B": "การแสดงโครงสร้างลำดับชั้น เช่น พนักงานและผู้จัดการที่อยู่ในตารางเดียวกัน",
+        "C": "การหาผลรวมของยอดขายทั้งบริษัท",
+        "D": "การลบข้อมูลที่ซ้ำกันออกจากตาราง",
+        "E": "การ JOIN ตารางที่ถูกลบไปแล้ว (Ghost Table)"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "SELF JOIN ใช้เมื่อข้อมูลมีความสัมพันธ์ภายในตารางเดียวกัน เช่น ตาราง Employee ที่มีคอลัมน์ Manager_ID"
+    },
+    {
+      "order": 42,
+      "topic": "JOIN Operations",
+      "difficulty": "hard",
+      "question": "เทคนิคใดที่ใช้ LEFT JOIN ร่วมกับ WHERE ... IS NULL เพื่อค้นหาข้อมูล?",
+      "options": {
+        "A": "หาข้อมูลที่มีอยู่ในทั้ง 2 ตาราง",
+        "B": "หาข้อมูลในตารางซ้ายที่ไม่มีข้อมูลคู่กันในตารางขวา (Anti-Join)",
+        "C": "หาข้อมูลในตารางขวาที่ไม่มีข้อมูลคู่กันในตารางซ้าย",
+        "D": "หาข้อมูลทั้งหมดโดยไม่สนว่าตรงกันหรือไม่",
+        "E": "หาข้อมูลที่ซ้ำกันระหว่าง 2 ตาราง"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "LEFT JOIN + WHERE ฝั่งขวา IS NULL คือวิธีมาตรฐานในการหาข้อมูลฝั่งซ้ายที่ไม่มีคู่ตรงกันในฝั่งขวา"
+    },
+    {
+      "order": 43,
+      "topic": "Advanced SQL",
+      "difficulty": "easy",
+      "question": "'Subquery' หมายถึงอะไร?",
+      "options": {
+        "A": "คำสั่ง SELECT ที่ซ้อนอยู่ภายในคำสั่ง SELECT อีกที",
+        "B": "ตารางที่ถูกสร้างขึ้นชั่วคราว",
+        "C": "การรวม 2 ตารางเข้าด้วยกัน",
+        "D": "การลบข้อมูลแบบมีเงื่อนไข",
+        "E": "คำสั่งที่ใช้สร้าง Index แบบซ้อนกัน"
+      },
+      "correct_answer": "A",
+      "points": 1,
+      "explanation": "Subquery คือคำสั่ง SELECT ที่ซ้อนอยู่ภายในคำสั่ง SQL อีกคำสั่งหนึ่ง"
+    },
+    {
+      "order": 44,
+      "topic": "Advanced SQL",
+      "difficulty": "medium",
+      "question": "Subquery ประเภทใดที่ทำงาน 'ทุกแถว' ของ Query ภายนอก (Row-by-Row) และมักใช้ร่วมกับ EXISTS?",
+      "options": {
+        "A": "Scalar Subquery",
+        "B": "Correlated Subquery",
+        "C": "Table Subquery",
+        "D": "Nested Subquery",
+        "E": "Recursive Subquery"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "Correlated Subquery คือ Subquery ที่อ้างอิงคอลัมน์จาก Query ภายนอก ทำให้ต้องทำงานแบบ Row-by-Row"
+    },
+    {
+      "order": 45,
+      "topic": "Advanced SQL",
+      "difficulty": "easy",
+      "question": "ความแตกต่างระหว่าง UNION กับ UNION ALL คืออะไร?",
+      "options": {
+        "A": "UNION ตัดข้อมูลซ้ำออก, UNION ALL เก็บข้อมูลซ้ำไว้",
+        "B": "UNION เก็บข้อมูลซ้ำไว้, UNION ALL ตัดข้อมูลซ้ำออก",
+        "C": "UNION ใช้ได้กับ 2 ตาราง, UNION ALL ใช้ได้กับ 3 ตารางขึ้นไป",
+        "D": "ไม่มีความแตกต่างกัน",
+        "E": "UNION ใช้รวมตารางในแนวนอน ส่วน UNION ALL ใช้รวมในแนวตั้ง"
+      },
+      "correct_answer": "A",
+      "points": 1,
+      "explanation": "UNION จะรวมข้อมูลและตัดค่าที่ซ้ำกันออก (ช้ากว่า) ส่วน UNION ALL จะรวมข้อมูลทั้งหมดโดยไม่ตัดค่าซ้ำ (เร็วกว่า)"
+    },
+    {
+      "order": 46,
+      "topic": "Advanced SQL",
+      "difficulty": "easy",
+      "question": "'View' ในฐานข้อมูลคืออะไร?",
+      "options": {
+        "A": "ตารางที่เก็บข้อมูลจริงลงในฮาร์ดดิสก์",
+        "B": "ตารางเสมือน (Virtual Table) ที่เกิดจากผลลัพธ์ของ Query",
+        "C": "รูปแบบการแสดงผลกราฟิกของข้อมูล",
+        "D": "ดัชนีที่ใช้เร่งความเร็ว",
+        "E": "ตารางชั่วคราว (Temporary Table) ที่หายไปเมื่อปิดการเชื่อมต่อ"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "View คือ Query ที่ถูกบันทึกชื่อไว้ ใช้งานซ้ำได้เหมือนตาราง แต่ไม่ได้เก็บข้อมูลจริง (ต่างจาก Temporary Table)"
+    },
+    {
+      "order": 47,
+      "topic": "Advanced SQL",
+      "difficulty": "medium",
+      "question": "ประโยชน์หลักของการสร้าง 'Index' คืออะไร?",
+      "options": {
+        "A": "ทำให้การ INSERT ข้อมูลเร็วขึ้น",
+        "B": "ทำให้การ SELECT หรือค้นหาข้อมูลเร็วขึ้น",
+        "C": "ทำให้ไฟล์ฐานข้อมูลมีขนาดเล็กลง",
+        "D": "ป้องกันไม่ให้ข้อมูลถูกลบ",
+        "E": "ทำให้การ JOIN ตารางไม่ต้องใช้ Foreign Key"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "Index เปรียบเหมือนสารบัญหนังสือ ทำให้ค้นหาข้อมูล (SELECT/JOIN) ได้เร็วขึ้นมาก"
+    },
+    {
+      "order": 48,
+      "topic": "Advanced SQL",
+      "difficulty": "medium",
+      "question": "ข้อเสียของการสร้าง Index มากเกินไปคืออะไร?",
+      "options": {
+        "A": "ทำให้การ SELECT ช้าลง",
+        "B": "ทำให้การ INSERT, UPDATE, DELETE ช้าลง เพราะต้องอัพเดท Index ด้วย",
+        "C": "ทำให้ข้อมูลสูญหาย",
+        "D": "ทำให้ไม่สามารถใช้คำสั่ง JOIN ได้",
+        "E": "ทำให้ข้อมูลในตารางถูกเข้ารหัส (Encrypt) อัตโนมัติ"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "ทุกครั้งที่มีการแก้ข้อมูล (INSERT/UPDATE/DELETE) ระบบต้องไปอัพเดท Index ด้วย ทำให้การเขียนข้อมูลช้าลง"
+    },
+    {
+      "order": 49,
+      "topic": "Applied SQL",
+      "difficulty": "hard",
+      "question": "หากเขียนคำสั่ง 'UPDATE Table SET Column = 'A';' โดยลืมใส่ WHERE จะเกิดอะไรขึ้น?",
+      "options": {
+        "A": "ระบบจะ Error และไม่ทำงาน",
+        "B": "ข้อมูลแถวแรกสุดจะถูกเปลี่ยนเป็น 'A'",
+        "C": "ข้อมูลทุกแถวในตารางจะถูกเปลี่ยนเป็น 'A'",
+        "D": "ระบบจะสร้างตารางใหม่",
+        "E": "ระบบจะถามยืนยัน (Confirm) ก่อนทำการอัพเดททุกแถว"
+      },
+      "correct_answer": "C",
+      "points": 1,
+      "explanation": "การลืม WHERE ใน UPDATE หรือ DELETE จะส่งผลให้ทุกแถวในตารางถูกแก้ไขหรือลบทิ้ง (SQL ไม่มีการถาม Confirm โดยอัตโนมัติ)"
+    },
+    {
+      "order": 50,
+      "topic": "Applied SQL",
+      "difficulty": "hard",
+      "question": "บริษัทต้องการให้แผนก HR สามารถดูรายชื่อพนักงานและแผนกได้ แต่ต้องไม่เห็นคอลัมน์ 'เงินเดือน' โดยที่นักพัฒนาไม่ต้องแก้ไขโค้ด Application เดิม ควรใช้ฟีเจอร์ใด?",
+      "options": {
+        "A": "สร้างตารางใหม่และคัดลอกข้อมูลยกเว้นคอลัมน์เงินเดือน",
+        "B": "ใช้คำสั่ง REVOKE ลบสิทธิ์การเข้าถึงตารางหลัก แล้วสร้าง VIEW ที่เลือกเฉพาะคอลัมน์ที่อนุญาต",
+        "C": "สร้าง INDEX แบบ Unique บนคอลัมน์เงินเดือน",
+        "D": "ใช้ TRUNCATE คอลัมน์เงินเดือนออกจากระบบ",
+        "E": "ใช้คำสั่ง DROP TABLE บนคอลัมน์เงินเดือน"
+      },
+      "correct_answer": "B",
+      "points": 1,
+      "explanation": "View คือคำตอบมาตรฐานของ Column-Level Security สร้าง View ที่ SELECT เฉพาะคอลัมน์ที่อนุญาต แล้ว GRANT สิทธิ์ให้ HR"
+    }
+  ]
+}

@@ -6,7 +6,7 @@
     "title": "สอบปลายภาค (Final Examination)",
     "description": "ครอบคลุมเนื้อหาสัปดาห์ที่ 1-12: ER Model, Normalization, SQL DDL/DML/DQL, JOIN, Advanced SQL (รูปแบบ 5 ตัวเลือก)",
     "exam_type": "final",
-    "duration_minutes": 180,
+    "duration_minutes": 150,
     "passing_score": 50,
     "total_points": 50,
     "shuffle_questions": true,

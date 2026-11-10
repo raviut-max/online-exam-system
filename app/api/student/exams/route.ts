@@ -16,10 +16,9 @@ export async function POST(request: Request) {
     }
 
     const now = client_time ? new Date(client_time) : new Date()
-    console.log(' [API] เวลาปัจจุบัน:', now.toISOString())
+    console.log('🕐 [API] เวลาปัจจุบัน:', now.toISOString())
 
     // 1. ดึงข้อมูลนักศึกษาและวิชาที่ลงทะเบียน
-    // ⭐ ใช้ .maybeSingle() แทน .single() เพื่อป้องกัน throw error
     const { data: student, error: studentError } = await supabase
       .from('students')
       .select(`
@@ -29,6 +28,7 @@ export async function POST(request: Request) {
         section,
         course_enrollments (
           course_id,
+          section,
           courses (
             id,
             course_code,
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
         )
       `)
       .eq('id', student_id)
-      .maybeSingle() // ⭐ เปลี่ยนจาก .single() เป็น .maybeSingle()
+      .maybeSingle()
 
     if (studentError || !student) {
       console.error('❌ [API] ไม่พบนักศึกษา:', studentError)
@@ -47,23 +47,29 @@ export async function POST(request: Request) {
       }, { status: 404 })
     }
 
-    console.log('👤 [API] พบนักศึกษา:', student.full_name)
+    console.log('👤 [API] พบนักศึกษา:', student.full_name, 'Section:', student.section)
 
     // 2. ดึง course IDs ที่ลงทะเบียน
     const enrollments = student.course_enrollments || []
     console.log('📚 [API] จำนวน enrollment:', enrollments.length)
-
+    
     const enrolledCourseIds: string[] = []
+    const studentSections: Record<string, string> = {} // course_id -> section
+    
     for (const ce of enrollments) {
       if (ce?.course_id) {
         enrolledCourseIds.push(ce.course_id)
+        if (ce.section) {
+          studentSections[ce.course_id] = ce.section
+        }
       }
     }
 
     console.log('📚 [API] Course IDs ที่ลงทะเบียน:', enrolledCourseIds)
+    console.log('📚 [API] Student Sections:', studentSections)
 
     if (enrolledCourseIds.length === 0) {
-      console.log('️ [API] นักศึกษาไม่ได้ลงทะเบียนวิชาใดเลย')
+      console.log('⚠️ [API] นักศึกษาไม่ได้ลงทะเบียนวิชาใดเลย')
       return NextResponse.json({ 
         exams: [], 
         student: { 
@@ -75,7 +81,7 @@ export async function POST(request: Request) {
       })
     }
 
-    // 3. ⭐ ดึงข้อสอบที่ active (เพิ่ม course_id ใน select)
+    // 3. ดึงข้อสอบที่ active
     const { data: exams, error: examsError } = await supabase
       .from('exams')
       .select(`
@@ -103,19 +109,6 @@ export async function POST(request: Request) {
     }
 
     console.log('📝 [API] พบข้อสอบ:', exams?.length || 0)
-    
-    // ⭐ Debug: แสดงรายละเอียดข้อสอบที่พบ
-    if (exams && exams.length > 0) {
-      exams.forEach((exam: any) => {
-        console.log('  📝 Exam:', {
-          id: exam.id,
-          title: exam.title,
-          course_id: exam.course_id,
-          course_code: exam.course_code,
-          is_active: exam.is_active
-        })
-      })
-    }
 
     if (!exams || exams.length === 0) {
       console.log('⚠️ [API] ไม่พบข้อสอบที่ active สำหรับวิชาที่ลงทะเบียน')
@@ -131,7 +124,7 @@ export async function POST(request: Request) {
     }
 
     const examIds = exams.map((e: any) => e.id)
-    console.log(' [API] Exam IDs:', examIds)
+    console.log('📝 [API] Exam IDs:', examIds)
 
     // 4. ดึง sessions ทั้งหมด
     const { data: sessions, error: sessionsError } = await supabase
@@ -146,26 +139,53 @@ export async function POST(request: Request) {
 
     console.log('📅 [API] พบ sessions:', sessions?.length || 0)
 
-    // ⭐ Debug: แสดงรายละเอียด sessions
-    if (sessions && sessions.length > 0) {
-      sessions.forEach((session: any) => {
-        console.log('  📅 Session:', {
-          id: session.id,
-          title: session.title,
-          exam_id: session.exam_id,
-          start_time: session.start_time,
-          end_time: session.end_time,
-          is_active: session.is_active
-        })
+    // 5. ⭐ กรอง sessions ตาม target_sections และ section ของนักศึกษา
+    const filteredSessions = (sessions || []).filter((session: any) => {
+      const targetSections = session.target_sections || []
+      const sessionSection = session.section
+      const exam = exams.find(e => e.id === session.exam_id)
+      const studentSection = exam ? studentSections[exam.course_id] : null
+
+      console.log(`🔍 [Filter Session] "${session.title}":`, {
+        target_sections: targetSections,
+        session_section: sessionSection,
+        student_section: studentSection,
       })
-    }
 
-    const activeSessions = sessions || []
+      // ถ้า target_sections มี "*" → ใช้ได้ทุก section
+      if (targetSections.includes('*')) {
+        console.log('  ✅ → ใช้ได้ทุก section (wildcard *)')
+        return true
+      }
 
-    // 5. ตรวจสอบจำนวนครั้งที่ทำไปแล้ว
-    const sessionIds = activeSessions.map((s: any) => s.id)
+      // ถ้า session มี section → ใช้ได้เฉพาะ section นั้น
+      if (sessionSection && sessionSection === studentSection) {
+        console.log(`  ✅ → ตรงกับ section ของนักศึกษา (${studentSection})`)
+        return true
+      }
+
+      // ถ้า target_sections มี section ของนักศึกษา → ใช้ได้
+      if (studentSection && targetSections.includes(studentSection)) {
+        console.log(`  ✅ → target_sections มี section ของนักศึกษา (${studentSection})`)
+        return true
+      }
+
+      // ถ้าไม่มี target_sections และไม่มี section → ใช้ได้ทุก section
+      if (targetSections.length === 0 && !sessionSection) {
+        console.log('  ✅ → ไม่มี target_sections และ section (ใช้ทุก section)')
+        return true
+      }
+
+      console.log('  ❌ → ไม่ตรงกับ section ของนักศึกษา')
+      return false
+    })
+
+    console.log('📅 [API] Sessions ที่กรองแล้ว:', filteredSessions.length)
+
+    // 6. ตรวจสอบจำนวนครั้งที่ทำไปแล้ว
+    const sessionIds = filteredSessions.map((s: any) => s.id)
     let attemptCounts: Record<string, number> = {}
-
+    
     if (sessionIds.length > 0) {
       const { data: attempts } = await supabase
         .from('exam_attempts')
@@ -182,8 +202,8 @@ export async function POST(request: Request) {
 
     console.log('🔢 [API] Attempt counts:', attemptCounts)
 
-    // 6. เพิ่มข้อมูล attempts_remaining ให้แต่ละ session
-    const sessionsWithAttempts = activeSessions.map((session: any) => {
+    // 7. เพิ่มข้อมูล attempts_remaining ให้แต่ละ session
+    const sessionsWithAttempts = filteredSessions.map((session: any) => {
       const exam = exams.find((e: any) => e.id === session.exam_id)
       const maxAttempts = session.max_attempts_override || exam?.max_attempts || 1
       const doneCount = attemptCounts[session.id] || 0
@@ -197,7 +217,7 @@ export async function POST(request: Request) {
 
     console.log('✅ [API] Sessions ที่พร้อมส่ง:', sessionsWithAttempts.length)
 
-    // 7. ส่ง exams ที่มี sessions ทั้งหมดกลับมา
+    // 8. ส่ง exams ที่มี sessions ทั้งหมดกลับมา
     const examsWithSessions = exams.map((exam: any) => ({
       ...exam,
       sessions: sessionsWithAttempts.filter((s: any) => s.exam_id === exam.id)
@@ -215,8 +235,8 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('💥 [API] CRITICAL ERROR:', error)
-    return NextResponse.json({ 
-      error: error.message || 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' 
+    return NextResponse.json({
+      error: error.message || 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์'
     }, { status: 500 })
   }
 }
