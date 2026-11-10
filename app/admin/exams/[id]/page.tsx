@@ -1,40 +1,20 @@
-'use client'
-import { useRouter, useParams } from 'next/navigation'
+import { Suspense } from 'react'
+import AdminExamDetailClient from './AdminExamDetailClient'
 
-// ⭐ แก้ไข Build Error: บังคับให้ render แบบ dynamic เพื่อรองรับ useParams ใน Client Component
-export const dynamic = 'force-dynamic'
-export const instant = false
-
-export default function AdminExamDetailPage() {
-  const router = useRouter()
-  const params = useParams()
-  
-  // ป้องกัน Error กรณี params.id เป็น Array
-  const examId = typeof params.id === 'string' ? params.id : (Array.isArray(params.id) ? params.id[0] : '')
+export default async function AdminExamDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  // ⭐ อ่านค่า id แบบ Async (มาตรฐาน Next.js 15+)
+  const { id } = await params
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">
-        <h1 className="text-2xl font-bold mb-4">📝 จัดการโจทย์ข้อสอบ</h1>
-        <p className="text-gray-600 mb-6">
-          รหัสข้อสอบ (Exam ID): <span className="font-mono bg-gray-100 px-2 py-1 rounded">{examId}</span>
-        </p>
-        
-        <div className="flex gap-4">
-          <button
-            onClick={() => router.push('/admin/exams')}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-medium transition"
-          >
-            ← กลับหน้าจัดการข้อสอบ
-          </button>
-          <button
-            onClick={() => alert('ฟีเจอร์เพิ่มโจทย์กำลังพัฒนาในขั้นตอนถัดไป')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition"
-          >
-            + เพิ่มโจทย์ใหม่
-          </button>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="text-4xl mb-4 animate-bounce">⏳</div>
+          <p className="text-gray-500 text-lg animate-pulse">กำลังโหลด...</p>
         </div>
       </div>
-    </div>
+    }>
+      <AdminExamDetailClient examId={id} />
+    </Suspense>
   )
 }
