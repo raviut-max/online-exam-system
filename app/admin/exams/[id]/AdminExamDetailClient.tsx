@@ -1,4 +1,5 @@
-'use client'
+'use client' // ⚠️ ต้องมีบรรทัดนี้เท่านั้น
+
 import { useRouter } from 'next/navigation'
 
 export default function AdminExamDetailClient({ examId }: { examId: string }) {
