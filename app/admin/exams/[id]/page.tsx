@@ -1,12 +1,18 @@
 import { Suspense } from 'react'
-import StudentExamClient from './StudentExamClient'
+import AdminExamDetailClient from './AdminExamDetailClient'
 
 /**
- * ✅ Page นี้เป็น Server Component
- *    - ทำหน้าที่แค่ห่อ Client Component ด้วย <Suspense>
- *    - ทำให้ Static Shell ถูก Prerender ได้ทันที
+ * Server Component
+ * - ห่อ Client Component ด้วย <Suspense>
+ * - รับ params.id แล้วส่งต่อให้ Client Component
  */
-export default function StudentExamPage() {
+export default async function AdminExamDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+
   return (
     <Suspense
       fallback={
@@ -14,13 +20,13 @@ export default function StudentExamPage() {
           <div className="text-center">
             <div className="text-4xl mb-4 animate-bounce">⏳</div>
             <p className="text-gray-500 text-lg animate-pulse">
-              กำลังโหลดข้อสอบ...
+              กำลังโหลดข้อมูลข้อสอบ...
             </p>
           </div>
         </div>
       }
     >
-      <StudentExamClient />
+      <AdminExamDetailClient examId={id} />
     </Suspense>
   )
 }
