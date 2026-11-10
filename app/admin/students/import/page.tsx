@@ -1,5 +1,4 @@
 'use client'
-
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
@@ -11,7 +10,6 @@ export default function ImportStudentsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [showAll, setShowAll] = useState(false)
-  
   const [courseCode, setCourseCode] = useState('')
   const [courseName, setCourseName] = useState('')
   const [semester, setSemester] = useState('1')
@@ -19,13 +17,12 @@ export default function ImportStudentsPage() {
   const [group, setGroup] = useState('')
   const [teacher, setTeacher] = useState('')
   const [department, setDepartment] = useState('วิศวกรรมคอมพิวเตอร์')
-  
+  const [courseId, setCourseId] = useState<string | null>(null) // ⭐ เพิ่ม state สำหรับ course_id
   const router = useRouter()
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
     if (!selectedFile) return
-
     setFile(selectedFile)
     parseExcel(selectedFile)
   }
@@ -38,21 +35,18 @@ export default function ImportStudentsPage() {
         const workbook = XLSX.read(data, { type: 'binary' })
         const sheetName = workbook.SheetNames[0]
         const worksheet = workbook.Sheets[sheetName]
-        
         const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { 
           header: 1,
           defval: ''
         })
-
         const parsedStudents: any[] = []
         let foundCourse = false
         let headerRowFound = false
         let foundDepartment = false
-
+        
         for (let i = 0; i < jsonData.length; i++) {
           const row = jsonData[i]
           if (!row) continue
-
           const rowStr = row.map((cell: any) => String(cell || '').trim())
           
           // 1. ค้นหารหัสวิชาและชื่อวิชา
@@ -64,7 +58,7 @@ export default function ImportStudentsPage() {
               foundCourse = true
             }
           }
-
+          
           // 2. ค้นหาภาคการศึกษา
           if (rowStr[0].includes('ภาคการศึกษาที่')) {
             const match = rowStr[0].match(/ภาคการศึกษาที่\s*:\s*(\d+)\s+ปีการศึกษา\s*:\s*(\d+)/)
@@ -73,7 +67,7 @@ export default function ImportStudentsPage() {
               setYear(match[2])
             }
           }
-
+          
           // 3. ค้นหาชื่ออาจารย์
           if (rowStr[0].includes('ชื่อ-สกุลอาจารย์')) {
             const match = rowStr[0].match(/ชื่อ-สกุลอาจารย์\s*:\s*\d+\s*-\s*(.+)/)
@@ -81,7 +75,7 @@ export default function ImportStudentsPage() {
               setTeacher(match[1].trim())
             }
           }
-
+          
           // 4. ค้นหากลุ่มเรียน
           if (rowStr[0].includes('กลุ่มเรียน')) {
             const match = rowStr[0].match(/กลุ่มเรียน\s*:\s*(\d+)/)
@@ -89,40 +83,36 @@ export default function ImportStudentsPage() {
               setGroup(match[1])
             }
           }
-
+          
           // 5. ค้นหาสาขาวิชา
           if (!foundDepartment && rowStr[0].includes('สาขาวิชา')) {
             const match = rowStr[0].match(/สาขาวิชา\s*:\s*(.+)/)
             if (match && match[1].trim()) {
               setDepartment(match[1].trim())
               foundDepartment = true
-              console.log('Found department:', match[1].trim())
             } else {
-              // ลองเช็คคอลัมน์อื่น
               for (let j = 1; j < rowStr.length; j++) {
                 if (rowStr[j] && rowStr[j].trim()) {
                   setDepartment(rowStr[j].trim())
                   foundDepartment = true
-                  console.log('Found department in column', j, ':', rowStr[j].trim())
                   break
                 }
               }
             }
           }
-
+          
           // 6. หาแถว header
           if (!headerRowFound && rowStr[1] === 'รหัสนักศึกษา') {
             headerRowFound = true
             continue
           }
-
+          
           // 7. ดึงข้อมูลนักศึกษา
           if (headerRowFound && rowStr[1]) {
             const studentCode = rowStr[1]
             const fullName = rowStr[2]
             const status = rowStr[4] || ''
             const remark = rowStr[5] || ''
-
             if (studentCode.match(/^\d{11}$/) && fullName) {
               parsedStudents.push({
                 student_code: studentCode,
@@ -133,11 +123,10 @@ export default function ImportStudentsPage() {
             }
           }
         }
-
+        
         setStudents(parsedStudents)
         setShowAll(false)
         setError('')
-        
         if (parsedStudents.length === 0) {
           setError('ไม่พบข้อมูลนักศึกษาในไฟล์ กรุณาตรวจสอบรูปแบบไฟล์')
         }
@@ -157,17 +146,18 @@ export default function ImportStudentsPage() {
       setError('ไม่มีข้อมูลนักศึกษาที่จะนำเข้า')
       return
     }
-
+    
     if (!confirm(`ยืนยันการนำเข้าข้อมูลนักศึกษาทั้งหมด ${students.length} คน?\n(สาขาวิชา: ${department}, กลุ่มเรียน: ${group})`)) {
       return
     }
-
+    
     setLoading(true)
     setError('')
     setSuccess('')
-
+    setCourseId(null) // ⭐ รีเซ็ต course_id
+    
     try {
-      // 1. สร้างวิชา (เช็ค duplicate)
+      // ⭐ ขั้นตอนที่ 1: ตรวจสอบหรือสร้างวิชา (ใช้ course_code + section เพื่อหา course_id)
       const courseRes = await fetch('/api/admin/courses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -179,25 +169,37 @@ export default function ImportStudentsPage() {
           section: group,
         }),
       })
-
-      const courseData = await courseRes.json()
-      let courseStatus = ''
       
-      if (courseData.action === 'exists') {
-        courseStatus = `📚 วิชา: ${courseData.message} (ใช้ข้อมูลเดิม)`
-      } else if (courseData.action === 'created') {
-        courseStatus = `📚 วิชา: สร้างวิชา ${courseCode} กลุ่ม ${group} ใหม่`
+      const courseData = await courseRes.json()
+      
+      if (!courseRes.ok) {
+        throw new Error(courseData.error || 'ไม่สามารถสร้างหรือค้นหาวิชาได้')
       }
-
-      // 2. เพิ่ม/อัพเดทนักศึกษาและลงทะเบียน
+      
+      // ⭐ ตรวจสอบว่า API ส่ง course_id มาหรือไม่
+      if (!courseData.course_id) {
+        throw new Error('API ไม่ได้ส่ง course_id กลับมา')
+      }
+      
+      setCourseId(courseData.course_id) // ⭐ บันทึก course_id
+      
+      let courseStatus = ''
+      if (courseData.action === 'exists') {
+        courseStatus = `📚 วิชา: ${courseData.message} (ใช้ course_id: ${courseData.course_id})`
+      } else if (courseData.action === 'created') {
+        courseStatus = `📚 วิชา: สร้างวิชา ${courseCode} กลุ่ม ${group} ใหม่ (course_id: ${courseData.course_id})`
+      }
+      
+      // ⭐ ขั้นตอนที่ 2: เพิ่ม/อัพเดทนักศึกษาและลงทะเบียน (ใช้ course_id)
       let createdCount = 0
       let updatedCount = 0
       let enrolledCount = 0
       let alreadyEnrolledCount = 0
       let errorCount = 0
-
+      
       for (const student of students) {
         try {
+          // 2.1 เพิ่มหรืออัพเดทนักศึกษา
           const studentRes = await fetch('/api/admin/students', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -208,7 +210,7 @@ export default function ImportStudentsPage() {
               year: parseInt(year) - 2567,
             }),
           })
-
+          
           const studentData = await studentRes.json()
           
           if (studentRes.ok) {
@@ -217,18 +219,18 @@ export default function ImportStudentsPage() {
             } else if (studentData.action === 'updated') {
               updatedCount++
             }
-
-            // ลงทะเบียนวิชา
+            
+            // 2.2 ลงทะเบียนวิชา (ใช้ course_id แทน course_code)
             const enrollRes = await fetch('/api/admin/enroll', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 student_code: student.student_code,
-                course_code: courseCode,
+                course_id: courseData.course_id, // ⭐ ใช้ course_id แทน course_code
                 section: group,
               }),
             })
-
+            
             const enrollData = await enrollRes.json()
             
             if (enrollRes.ok) {
@@ -237,6 +239,9 @@ export default function ImportStudentsPage() {
               } else {
                 enrolledCount++
               }
+            } else {
+              errorCount++
+              console.error('Failed to enroll student:', enrollData)
             }
           } else {
             errorCount++
@@ -247,24 +252,21 @@ export default function ImportStudentsPage() {
           console.error('Error processing student:', student.student_code, err)
         }
       }
-
+      
       const msg = `
 ${courseStatus}
-
 ✅ เสร็จสิ้น!
 🆕 เพิ่มนักศึกษาใหม่: ${createdCount} คน
 🔄 อัพเดทข้อมูล: ${updatedCount} คน
 📚 ลงทะเบียนใหม่: ${enrolledCount} คน
 ⏭️ ลงทะเบียนแล้ว: ${alreadyEnrolledCount} คน
 ❌ ผิดพลาด: ${errorCount} คน
-      `.trim()
+`.trim()
       
       setSuccess(msg)
-      
       setTimeout(() => {
         router.push('/admin/students')
       }, 5000)
-
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดในการนำเข้าข้อมูล')
     } finally {
@@ -291,7 +293,6 @@ ${courseStatus}
         {/* Upload Section */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4">1. อัปโหลดไฟล์ Excel</h2>
-          
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
             <input
               type="file"
@@ -310,7 +311,6 @@ ${courseStatus}
               <span className="text-blue-600 font-medium">คลิกเพื่อเลือกไฟล์ Excel</span>
               <span className="text-sm text-gray-500 mt-1">รองรับไฟล์ ISRP37 (.xlsx, .xls)</span>
             </label>
-            
             {file && (
               <div className="mt-4 text-sm text-gray-600">
                 📄 ไฟล์: {file.name}
@@ -409,7 +409,6 @@ ${courseStatus}
                   </button>
                 )}
               </div>
-              
               <div className="max-h-96 overflow-y-auto border rounded-md">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 sticky top-0 z-10">
@@ -440,13 +439,11 @@ ${courseStatus}
                   </tbody>
                 </table>
               </div>
-
               {!showAll && students.length > 20 && (
                 <div className="mt-3 text-center text-sm text-gray-500">
                   แสดง 20 คนแรกจากทั้งหมด {students.length} คน — กดปุ่ม "🔽 ดูทั้งหมด" ด้านบนเพื่อดูทั้งหมด
                 </div>
               )}
-
               <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
                 ℹ️ ระบบจะนำเข้าข้อมูลนักศึกษา <strong>ทุกคน</strong> ในรายการ (รวมถึงผู้ที่หมายเหตุว่า "พ้นสภาพ") 
                 โดยใช้สาขาวิชา: <strong>{department}</strong> และกลุ่มเรียน: <strong>{group}</strong>
@@ -469,6 +466,7 @@ ${courseStatus}
                   setShowAll(false)
                   setError('')
                   setSuccess('')
+                  setCourseId(null)
                 }}
                 className="px-6 py-3 border rounded-md hover:bg-gray-50"
               >

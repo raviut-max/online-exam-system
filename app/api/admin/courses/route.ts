@@ -20,7 +20,6 @@ export async function GET() {
     // กรองให้เหลือแค่ course_code ที่ไม่ซ้ำกัน (เอาแถวแรกของแต่ละวิชา)
     const uniqueCourses: any[] = []
     const seen = new Set<string>()
-
     for (const course of allCourses || []) {
       if (!seen.has(course.course_code)) {
         seen.add(course.course_code)
@@ -34,32 +33,40 @@ export async function GET() {
   }
 }
 
-// POST: สร้างวิชาใหม่ (เช็ค duplicate แบบรวม section)
+// POST: สร้างวิชาใหม่ (เช็ค duplicate เฉพาะ course_code)
 export async function POST(request: Request) {
   try {
     const { course_code, course_name, semester, teacher_name, section } = await request.json()
-
     const sectionValue = section || '001'
 
-    // 1. เช็คว่าวิชานี้ + section นี้ + semester นี้ มีอยู่แล้วไหม
-    const { data: existing } = await supabase
+    console.log('🔍 [Courses API] ค้นหาวิชา:', { course_code, section: sectionValue })
+
+    // ⭐ เปลี่ยน: เช็คเฉพาะ course_code (ไม่รวม section)
+    const { data: existing, error: queryError } = await supabase
       .from('courses')
-      .select('id, course_code, section, semester')
+      .select('id, course_code, course_name, section, semester')
       .eq('course_code', course_code)
-      .eq('section', sectionValue)
-      .eq('semester', semester)
       .maybeSingle()
 
+    if (queryError) {
+      console.error('❌ [Courses API] Query error:', queryError)
+      return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการค้นหาวิชา' }, { status: 500 })
+    }
+
+    // ⭐ ถ้ามีอยู่แล้ว → return course_id เดิม
     if (existing) {
-      return NextResponse.json({ 
+      console.log(`✅ [Courses API] พบวิชาอยู่แล้ว: ${course_code} (ID: ${existing.id})`)
+      return NextResponse.json({
         success: false,
         action: 'exists',
-        message: `วิชานี้มีอยู่แล้ว: ${course_code} กลุ่ม ${sectionValue} ภาค ${semester}`,
-        course: existing
+        message: `วิชานี้มีอยู่แล้ว: ${course_code} - ${course_name}`,
+        course_id: existing.id,
+        course: existing,
       })
     }
 
-    // 2. ยังไม่มี → สร้างใหม่
+    // ⭐ ยังไม่มี → สร้างใหม่
+    console.log(`🆕 [Courses API] สร้างวิชาใหม่: ${course_code} Section ${sectionValue}`)
     const { data, error } = await supabase
       .from('courses')
       .insert([{
@@ -74,22 +81,25 @@ export async function POST(request: Request) {
 
     if (error) {
       if (error.code === '23505') {
-        return NextResponse.json({ 
+        return NextResponse.json({
           success: false,
           action: 'exists',
-          message: `วิชานี้มีอยู่แล้วในฐานข้อมูล (course_code + section + semester ซ้ำกัน)`
+          message: `วิชานี้มีอยู่แล้วในฐานข้อมูล (course_code ซ้ำกัน)`,
         })
       }
       throw error
     }
 
-    return NextResponse.json({ 
+    console.log(`✅ [Courses API] สร้างวิชาสำเร็จ: ${course_code} (ID: ${data.id})`)
+    return NextResponse.json({
       success: true,
       action: 'created',
       message: 'สร้างวิชาใหม่สำเร็จ',
-      course: data 
+      course_id: data.id,
+      course: data,
     })
   } catch (error: any) {
+    console.error('💥 [Courses API] CRITICAL ERROR:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
