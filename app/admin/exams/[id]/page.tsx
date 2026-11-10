@@ -1,25 +1,36 @@
-import { Suspense } from 'react'
-import ExamDetailClient from './ExamDetailClient'
+'use client'
+import { useRouter, useParams } from 'next/navigation'
 
-// ⭐ วิธีใหม่ใน Next.js 15/16 เมื่อ cacheComponents เปิดอยู่
-// ใช้ instant = false เพื่อบอกว่าหน้านี้ต้องรอข้อมูลจริง (Blocking Route)
-export const instant = false
-
-export default async function ExamDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  // รอค่า params จาก URL
-  const { id } = await params
+export default function AdminExamDetailPage() {
+  const router = useRouter()
+  const params = useParams()
+  
+  // ป้องกัน Error กรณี params.id เป็น Array
+  const examId = typeof params.id === 'string' ? params.id : (Array.isArray(params.id) ? params.id[0] : '')
 
   return (
-    // ⭐ ห่อ Client Component ด้วย Suspense เพื่อให้ Next.js Stream ข้อมูลได้
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="text-4xl mb-4 animate-bounce">⏳</div>
-          <p className="text-gray-500 text-lg animate-pulse">กำลังโหลดข้อมูลข้อสอบ...</p>
+    <div className="min-h-screen bg-gray-100 p-8">
+      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">
+        <h1 className="text-2xl font-bold mb-4">📝 จัดการโจทย์ข้อสอบ</h1>
+        <p className="text-gray-600 mb-6">
+          รหัสข้อสอบ (Exam ID): <span className="font-mono bg-gray-100 px-2 py-1 rounded">{examId}</span>
+        </p>
+        
+        <div className="flex gap-4">
+          <button
+            onClick={() => router.push('/admin/exams')}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-medium transition"
+          >
+            ← กลับหน้าจัดการข้อสอบ
+          </button>
+          <button
+            onClick={() => alert('ฟีเจอร์เพิ่มโจทย์กำลังพัฒนาในขั้นตอนถัดไป')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition"
+          >
+            + เพิ่มโจทย์ใหม่
+          </button>
         </div>
       </div>
-    }>
-      <ExamDetailClient examId={id} />
-    </Suspense>
+    </div>
   )
 }

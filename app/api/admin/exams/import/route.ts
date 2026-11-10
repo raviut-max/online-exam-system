@@ -33,43 +33,41 @@ export async function POST(request: Request) {
 
     console.log('📥 [Import] เริ่มนำเข้าข้อสอบ:', metadata.course_code)
 
-    // 1. หาหรือสร้าง Course (เช็คทั้ง course_code และ section)
-    // ⭐ ใช้ .limit(1) แทน .single() เพื่อป้องกัน error ถ้ามีหลาย records
-    let { data: courses } = await supabase
+    // ⭐ 1. หาหรือสร้าง Course (แก้ TypeScript Error: course is possibly null)
+    let courseId: string = ''
+
+    const { data: existingCourse } = await supabase
       .from('courses')
       .select('id')
       .eq('course_code', metadata.course_code)
-      .eq('section', metadata.section || '001') // ⭐ เพิ่มเช็ค section
       .limit(1)
+      .maybeSingle()
 
-    let course = courses?.[0] || null
-
-    if (!course) {
-      // สร้าง course ใหม่ถ้าไม่มี
+    if (existingCourse?.id) {
+      courseId = existingCourse.id
+      console.log('✅ [Import] ใช้ course ที่มีอยู่:', courseId)
+    } else {
       const { data: newCourse, error } = await supabase
         .from('courses')
         .insert({
           course_code: metadata.course_code,
           course_name: metadata.course_name,
-          section: metadata.section || '001', // ⭐ เพิ่ม section
         })
-        .select()
+        .select('id')
         .single()
 
-      if (error) {
-        return NextResponse.json({ error: 'สร้างวิชาไม่ได้: ' + error.message }, { status: 500 })
+      if (error || !newCourse?.id) {
+        return NextResponse.json({ error: 'สร้างวิชาไม่ได้: ' + (error?.message || 'Unknown error') }, { status: 500 })
       }
-      course = newCourse
-      console.log('✅ [Import] สร้าง course ใหม่:', course.id)
-    } else {
-      console.log('✅ [Import] ใช้ course ที่มีอยู่:', course.id)
+      courseId = newCourse.id
+      console.log('✅ [Import] สร้าง course ใหม่:', courseId)
     }
 
-    // 2. สร้าง Exam
+    // ⭐ 2. สร้าง Exam (ตอนนี้ courseId มั่นใจแล้วว่าไม่เป็น null)
     const { data: exam, error: examErr } = await supabase
       .from('exams')
       .insert({
-        course_id: course.id,
+        course_id: courseId,
         course_code: metadata.course_code,
         title: metadata.title,
         description: metadata.description || '',
@@ -122,8 +120,8 @@ export async function POST(request: Request) {
         option_b: options.B || null,
         option_c: options.C || null,
         option_d: options.D || null,
-        option_e: options.E || null, // ⭐ เพิ่ม option_e
-        option_f: options.F || null, // ⭐ เพิ่ม option_f (เผื่ออนาคต)
+        option_e: options.E || null,
+        option_f: options.F || null,
         correct_answer: q.correct_answer,
         points: q.points || 1,
         order_number: q.order || idx + 1,
