@@ -1,6 +1,10 @@
 'use client'
 import { useRouter, useParams } from 'next/navigation'
 
+// ⭐ แก้ไข Build Error: บังคับให้ render แบบ dynamic เพื่อรองรับ useParams ใน Client Component
+export const dynamic = 'force-dynamic'
+export const instant = false
+
 export default function AdminExamDetailPage() {
   const router = useRouter()
   const params = useParams()
