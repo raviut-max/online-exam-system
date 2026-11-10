@@ -47,9 +47,9 @@ export async function POST(request: Request) {
       }, { status: 404 })
     }
 
-    console.log('👤 [API] พบนักศึกษา:', student.full_name, 'Section:', student.section)
+    console.log('👤 [API] พบนักศึกษา:', student.full_name)
 
-    // 2. ดึง course IDs ที่ลงทะเบียน
+    // 2. ดึง course IDs และ section ของนักศึกษาในแต่ละวิชา
     const enrollments = student.course_enrollments || []
     console.log('📚 [API] จำนวน enrollment:', enrollments.length)
     

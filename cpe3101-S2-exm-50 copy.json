@@ -3,7 +3,7 @@
     "course_code": "CPE3101",
     "course_name": "ระบบฐานข้อมูล",
     "section": "002",
-    "title": "สอบปลายภาค (Final Examination)",
+    "title": "สอบปลายภาค",
     "description": "ครอบคลุมเนื้อหาสัปดาห์ที่ 1-12: ER Model, Normalization, SQL DDL/DML/DQL, JOIN, Advanced SQL (รูปแบบ 5 ตัวเลือก)",
     "exam_type": "final",
     "duration_minutes": 150,
