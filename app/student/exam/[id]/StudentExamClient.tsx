@@ -161,6 +161,16 @@ export default function StudentExamClient({ examId }: { examId: string }) {
   }
 
   const handleSubmit = async (autoSubmit = false) => {
+    // ⭐ ตรวจสอบว่า examData มีอยู่จริง
+    if (!examData) {
+      console.error('❌ [Submit] examData เป็น null!')
+      if (autoSubmit) {
+        alert('⚠️ เกิดข้อผิดพลาด: ไม่พบข้อมูลข้อสอบ กรุณา refresh หน้าและลองใหม่')
+        router.push('/dashboard')
+      }
+      return
+    }
+
     if (isSubmitting) return
     setIsSubmitting(true)
 
@@ -190,7 +200,7 @@ export default function StudentExamClient({ examId }: { examId: string }) {
         body: JSON.stringify({
           attempt_id: examData.attempt_id,
           answers: answers,
-          time_used: timeUsed, // ⭐ ใช้เวลาที่คำนวณจาก epoch
+          time_used: timeUsed,
         }),
       })
 

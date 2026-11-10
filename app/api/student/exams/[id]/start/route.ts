@@ -8,9 +8,6 @@ const supabase = createClient(
 
 /**
  * ⭐ แปลง string เวลาเป็น timestamp (ms) โดยตีความว่าเป็นเวลาไทย (UTC+7)
- * ถ้า string ไม่มี timezone ต่อท้าย (เช่น "2026-11-10T17:01:00")
- * ถ้ามี timezone อยู่แล้ว (Z หรือ +07:00) จะใช้ตามนั้น
- * ป้องกันปัญหา Vercel (UTC) ตีความเวลาคลาดจากเครื่องผู้ใช้ (ไทย) 7 ชั่วโมง
  */
 function parseBangkokTime(value: string | Date): number {
   if (value instanceof Date) return value.getTime()
@@ -57,7 +54,7 @@ export async function POST(
 
     const exam = session.exams
 
-    // 2. ตรวจสอบเวลา (ใช้เวลาไทยเสมอ ไม่ขึ้นกับ timezone ของ server)
+    // 2. ตรวจสอบเวลา (ใช้เวลาไทยเสมอ)
     const now = Date.now()
     const startTime = parseBangkokTime(session.start_time)
     const endTime = parseBangkokTime(session.end_time)

@@ -270,7 +270,7 @@ export default function DashboardPage() {
           attempt_id: data.attempt_id,
           questions: data.questions,
           started_at: data.started_at,
-          started_at_epoch: data.started_at_epoch, // ⭐ เพิ่ม epoch time
+          started_at_epoch: data.started_at_epoch || Math.floor(new Date(data.started_at).getTime() / 1000), // ⭐ เพิ่ม epoch time พร้อม fallback
           duration_minutes: data.exam.duration_minutes,
           end_time: data.end_time || selectedSession?.end_time || null, // ⭐ เพิ่ม end_time
         })
