@@ -1,26 +1,32 @@
-import { Suspense } from 'react'
-import ExamClient from './ExamClient'
+'use client'
+import { useRouter, useParams } from 'next/navigation'
 
-// ⭐ แก้ Build Error: บอก Next.js ว่าหน้านี้ต้อง render แบบ dynamic (ไม่ prerender)
-export const instant = false
-
-export default async function ExamPage({ params }: { params: Promise<{ id: string }> }) {
-  // ⭐ อ่านค่า id จาก Dynamic Route [id]
-  const { id } = await params
+export default function AdminExamDetailPage() {
+  const router = useRouter()
+  const params = useParams()
+  const examId = params.id as string
 
   return (
-    // ⭐ ห่อ Client Component ด้วย Suspense เพื่อให้ Next.js Stream ได้
-    // และป้องกัน Hydration Mismatch จากเวลาหรือข้อมูล runtime
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="text-4xl mb-4 animate-bounce">⏳</div>
-          <p className="text-gray-500 text-lg animate-pulse">กำลังโหลดข้อสอบ...</p>
+    <div className="min-h-screen bg-gray-100 p-8">
+      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">
+        <h1 className="text-2xl font-bold mb-4">📝 จัดการโจทย์ข้อสอบ</h1>
+        <p className="text-gray-600 mb-6">รหัสข้อสอบ (Exam ID): <span className="font-mono bg-gray-100 px-2 py-1 rounded">{examId}</span></p>
+        
+        <div className="flex gap-4">
+          <button
+            onClick={() => router.push('/admin/exams')}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-medium transition"
+          >
+            ← กลับหน้าจัดการข้อสอบ
+          </button>
+          <button
+            onClick={() => alert('ฟีเจอร์เพิ่มโจทย์กำลังพัฒนาในขั้นตอนถัดไป')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition"
+          >
+            + เพิ่มโจทย์ใหม่
+          </button>
         </div>
       </div>
-    }>
-      {/* ส่ง examId ไปยัง Client Component */}
-      <ExamClient examId={id} />
-    </Suspense>
+    </div>
   )
 }
