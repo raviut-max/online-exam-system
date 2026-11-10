@@ -1,24 +1,12 @@
 import { Suspense } from 'react'
-import AdminExamDetailClient from './AdminExamDetailClient'
-
-// ⚠️ ห้ามมี export const dynamic หรือ revalidate เด็ดขาด เพราะขัดแย้งกับ Vercel cacheComponents
+import StudentExamClient from './StudentExamClient'
 
 /**
- * ✅ Component ย่อยที่ทำหน้าที่ await params
- *    - ถูกห่อด้วย <Suspense> ที่ Page หลัก
- *    - ทำให้ Static Shell ของหน้าถูก Prerender ได้ทันที
- *    - ส่วนที่ต้องใช้ params จะถูก Stream เข้ามาทีหลัง
+ * ✅ Page นี้เป็น Server Component
+ *    - ทำหน้าที่แค่ห่อ Client Component ด้วย <Suspense>
+ *    - ทำให้ Static Shell ถูก Prerender ได้ทันที
  */
-async function ExamDetailLoader({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  return <AdminExamDetailClient examId={id} />
-}
-
-export default function AdminExamDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
+export default function StudentExamPage() {
   return (
     <Suspense
       fallback={
@@ -26,13 +14,13 @@ export default function AdminExamDetailPage({
           <div className="text-center">
             <div className="text-4xl mb-4 animate-bounce">⏳</div>
             <p className="text-gray-500 text-lg animate-pulse">
-              กำลังโหลดข้อมูลข้อสอบ...
+              กำลังโหลดข้อสอบ...
             </p>
           </div>
         </div>
       }
     >
-      <ExamDetailLoader params={params} />
+      <StudentExamClient />
     </Suspense>
   )
 }
